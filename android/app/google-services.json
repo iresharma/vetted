@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "384830721188",
+    "project_id": "vetted-dev-ea19c",
+    "storage_bucket": "vetted-dev-ea19c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:384830721188:android:aaf431d40bd8b16b6dea31",
+        "android_client_info": {
+          "package_name": "com.example.vetted_club_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDQnfZm2x5q6NCLaZuHqPkj55bv_IR_bzA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
