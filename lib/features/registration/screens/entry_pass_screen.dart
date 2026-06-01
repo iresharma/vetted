@@ -24,23 +24,6 @@ class EntryPassScreen extends StatefulWidget {
 class _EntryPassScreenState extends State<EntryPassScreen> {
   bool _paying = false;
 
-  void _completeMembership(RazorpayPaymentResult result) {
-    final razorpaySubId = result.subscriptionId;
-    if (razorpaySubId != null && razorpaySubId.isNotEmpty) {
-      RegistrationService.instance.saveSubscription(
-        widget.customerId,
-        MembershipSubscription(
-          subscriptionId: razorpaySubId,
-          orderId: result.paymentId ?? result.orderId ?? '',
-          amountInr: RazorpayConfig.membershipAmountInr,
-          frequencyUnit: 'MONTH',
-          startedAt: DateTime.now(),
-        ),
-      );
-    }
-    widget.onContinue();
-  }
-
   Future<void> _beginMembership() async {
     if (_paying) return;
 
@@ -55,7 +38,25 @@ class _EntryPassScreenState extends State<EntryPassScreen> {
 
       switch (result.status) {
         case RazorpayPaymentStatus.success:
-          _completeMembership(result);
+          final paymentId = result.paymentId;
+          final subscriptionId = result.subscriptionId;
+          final signature = result.signature;
+          if (paymentId == null ||
+              paymentId.isEmpty ||
+              subscriptionId == null ||
+              subscriptionId.isEmpty ||
+              signature == null ||
+              signature.isEmpty) {
+            _showMessage('Payment verification data missing. Please retry.');
+            return;
+          }
+          await RazorpayService.instance.confirmMembership(
+            paymentId: paymentId,
+            subscriptionId: subscriptionId,
+            signature: signature,
+          );
+          await RegistrationService.instance.refreshStatus(widget.customerId);
+          widget.onContinue();
         case RazorpayPaymentStatus.cancelled:
           _showMessage(result.message ?? 'Payment cancelled.');
         case RazorpayPaymentStatus.failed:
@@ -64,7 +65,7 @@ class _EntryPassScreenState extends State<EntryPassScreen> {
     } on RazorpayNotConfiguredException {
       if (!mounted) return;
       _showMessage(
-        'Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env and restart.',
+        'Razorpay is not configured. Add RAZORPAY_KEY_ID to .env and restart.',
       );
     } on RazorpayPaymentException catch (e) {
       if (!mounted) return;
@@ -174,7 +175,7 @@ class _EntryPassScreenState extends State<EntryPassScreen> {
               !RazorpayConfig.bypassPayment) ...[
             const SizedBox(height: 12),
             Text(
-              'Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env to enable payments.',
+              'Add RAZORPAY_KEY_ID to .env to enable payments.',
               textAlign: TextAlign.center,
               style: AppTypography.supporting(color: AppColors.coral)
                   .copyWith(fontSize: 11, height: 1.5),

@@ -25,10 +25,19 @@ class AuthGate extends StatelessWidget {
 
         final user = snapshot.data;
         if (user != null) {
-          if (!RegistrationService.instance.isComplete(user.uid)) {
-            return RegistrationFlowScreen(user: user);
-          }
-          return HomeScreen(user: user);
+          return FutureBuilder<RegistrationStatus?>(
+            future: RegistrationService.instance.refreshStatus(user.uid),
+            initialData: RegistrationService.instance.statusFor(user.uid),
+            builder: (context, registrationSnapshot) {
+              final status = registrationSnapshot.data;
+              final complete = status?.isRegistrationComplete ??
+                  RegistrationService.instance.isComplete(user.uid);
+              if (!complete) {
+                return RegistrationFlowScreen(user: user);
+              }
+              return HomeScreen(user: user);
+            },
+          );
         }
 
         // Isolated stack so auth transitions dispose phone/OTP routes cleanly.

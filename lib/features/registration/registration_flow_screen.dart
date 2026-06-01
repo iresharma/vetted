@@ -23,6 +23,21 @@ class RegistrationFlowScreen extends StatefulWidget {
 class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
   _RegistrationStep _step = _RegistrationStep.intro;
   bool _signingOut = false;
+  bool _bootstrapping = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      await RegistrationService.instance.bootstrap(widget.user);
+    } finally {
+      if (mounted) setState(() => _bootstrapping = false);
+    }
+  }
 
   Future<void> _signOut() async {
     if (_signingOut) return;
@@ -38,12 +53,24 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
     setState(() => _step = step);
   }
 
-  void _completeRegistration() {
-    RegistrationService.instance.markComplete(widget.user.uid);
+  Future<void> _completeRegistration() async {
+    await RegistrationService.instance.refreshStatus(widget.user.uid);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_bootstrapping) {
+      return const Scaffold(
+        backgroundColor: AppColors.bg,
+        body: Center(
+          child: CircularProgressIndicator(
+            color: AppColors.violet,
+            strokeWidth: 2,
+          ),
+        ),
+      );
+    }
+
     return Stack(
       children: [
         AnimatedSwitcher(
@@ -72,11 +99,14 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
               ),
             _RegistrationStep.digilocker => DigilockerScreen(
                 key: const ValueKey('digilocker'),
+                customerId: widget.user.uid,
                 onVerified: () => _goTo(_RegistrationStep.youreIn),
               ),
             _RegistrationStep.youreIn => YoureInScreen(
                 key: const ValueKey('youre_in'),
-                onBuildBiodata: _completeRegistration,
+                onBuildBiodata: () {
+                  _completeRegistration();
+                },
               ),
           },
         ),

@@ -4,6 +4,7 @@ import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vetted_club_mobile/core/config/razorpay_config.dart';
+import 'package:vetted_club_mobile/core/services/registration_service.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
 import 'package:vetted_club_mobile/core/widgets/widgets.dart';
 import 'package:vetted_club_mobile/features/registration/widgets/registration_gate_header.dart';
@@ -12,8 +13,13 @@ import 'package:vetted_club_mobile/features/registration/widgets/registration_sc
 enum _DigiPhase { idle, verifying, verified }
 
 class DigilockerScreen extends StatefulWidget {
-  const DigilockerScreen({super.key, required this.onVerified});
+  const DigilockerScreen({
+    super.key,
+    required this.customerId,
+    required this.onVerified,
+  });
 
+  final String customerId;
   final VoidCallback onVerified;
 
   @override
@@ -52,23 +58,38 @@ class _DigilockerScreenState extends State<DigilockerScreen>
     super.dispose();
   }
 
-  void _startVerification() {
+  Future<void> _startVerification() async {
     if (_phase != _DigiPhase.idle) return;
 
     setState(() => _phase = _DigiPhase.verifying);
     _shimmer.repeat();
 
-    Future<void>.delayed(const Duration(milliseconds: 1800), () {
+    await Future<void>.delayed(const Duration(milliseconds: 1800));
+    if (!mounted) return;
+
+    try {
+      await RegistrationService.instance.markIdentityVerified(
+        verifiedName: 'Verified Member',
+        verifiedDob: '1998-01-01',
+        verifiedAge: 28,
+      );
+      await RegistrationService.instance.refreshStatus(widget.customerId);
+    } catch (_) {
       if (!mounted) return;
       _shimmer.stop();
-      setState(() => _phase = _DigiPhase.verified);
-      if (mounted) {
-        _confetti.play();
-        HapticFeedback.mediumImpact();
-      }
-      _advanceTimer = Timer(const Duration(milliseconds: 2000), () {
-        if (mounted) widget.onVerified();
-      });
+      setState(() => _phase = _DigiPhase.idle);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Identity verification failed. Please retry.')),
+      );
+      return;
+    }
+
+    _shimmer.stop();
+    setState(() => _phase = _DigiPhase.verified);
+    _confetti.play();
+    HapticFeedback.mediumImpact();
+    _advanceTimer = Timer(const Duration(milliseconds: 2000), () {
+      if (mounted) widget.onVerified();
     });
   }
 

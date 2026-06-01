@@ -1,44 +1,84 @@
-/// Active membership payment record for a user (Razorpay payment / order ids).
-class MembershipSubscription {
-  const MembershipSubscription({
-    required this.subscriptionId,
-    required this.orderId,
-    required this.amountInr,
-    required this.frequencyUnit,
-    required this.startedAt,
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:vetted_club_mobile/core/services/functions_service.dart';
+
+class RegistrationStatus {
+  const RegistrationStatus({
+    required this.exists,
+    required this.hasPaidEntryPass,
+    required this.isIdentityVerified,
+    required this.isRegistrationComplete,
   });
 
-  final String subscriptionId;
-  final String orderId;
-  final String amountInr;
-  final String frequencyUnit;
-  final DateTime startedAt;
+  final bool exists;
+  final bool hasPaidEntryPass;
+  final bool isIdentityVerified;
+  final bool isRegistrationComplete;
+
+  factory RegistrationStatus.fromMap(Map<String, dynamic> map) {
+    bool asBool(String key) => map[key] == true;
+    return RegistrationStatus(
+      exists: asBool('exists'),
+      hasPaidEntryPass: asBool('hasPaidEntryPass'),
+      isIdentityVerified: asBool('isIdentityVerified'),
+      isRegistrationComplete: asBool('isRegistrationComplete'),
+    );
+  }
 }
 
-/// Tracks whether a signed-in user has finished the in-app registration flow.
-///
-/// In-memory only for now; replace with backend / local persistence when APIs land.
 class RegistrationService {
   RegistrationService._();
 
   static final RegistrationService instance = RegistrationService._();
 
-  final Set<String> _completedUserIds = {};
-  final Map<String, MembershipSubscription> _subscriptionsByUserId = {};
+  final Map<String, RegistrationStatus> _statusByUserId = {};
 
-  bool isComplete(String uid) => _completedUserIds.contains(uid);
+  bool isComplete(String uid) =>
+      _statusByUserId[uid]?.isRegistrationComplete ?? false;
 
-  MembershipSubscription? subscriptionFor(String uid) =>
-      _subscriptionsByUserId[uid];
+  RegistrationStatus? statusFor(String uid) => _statusByUserId[uid];
 
-  void saveSubscription(String uid, MembershipSubscription subscription) {
-    _subscriptionsByUserId[uid] = subscription;
+  Future<void> bootstrap(User user) async {
+    await FunctionsService.instance.call(
+      'upsertUserFromAuth',
+      data: const {},
+    );
+    await refreshStatus(user.uid);
   }
 
-  void markComplete(String uid) => _completedUserIds.add(uid);
+  Future<RegistrationStatus> refreshStatus(String uid) async {
+    final response = await FunctionsService.instance.call(
+      'getRegistrationStatus',
+      data: const {},
+    );
+    final status = RegistrationStatus.fromMap(response);
+    _statusByUserId[uid] = status;
+    return status;
+  }
+
+  Future<void> markIdentityVerified({
+    required String verifiedName,
+    required String verifiedDob,
+    required int verifiedAge,
+  }) async {
+    await FunctionsService.instance.call(
+      'markIdentityVerified',
+      data: {
+        'verified_name': verifiedName,
+        'verified_dob': verifiedDob,
+        'verified_age': verifiedAge,
+      },
+    );
+  }
+
+  Future<void> saveProfileStep(Map<String, dynamic> payload) async {
+    await FunctionsService.instance.call('saveProfileStep', data: payload);
+  }
+
+  Future<void> savePreferencesStep(Map<String, dynamic> payload) async {
+    await FunctionsService.instance.call('savePreferencesStep', data: payload);
+  }
 
   void clear(String uid) {
-    _completedUserIds.remove(uid);
-    _subscriptionsByUserId.remove(uid);
+    _statusByUserId.remove(uid);
   }
 }

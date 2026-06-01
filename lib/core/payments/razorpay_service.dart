@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:vetted_club_mobile/core/config/razorpay_config.dart';
+import 'package:vetted_club_mobile/core/services/functions_service.dart';
 
 enum RazorpayPaymentStatus { success, cancelled, failed }
 
@@ -16,6 +15,7 @@ class RazorpayPaymentResult {
     this.paymentId,
     this.subscriptionId,
     this.raw,
+    this.signature,
   });
 
   final RazorpayPaymentStatus status;
@@ -24,18 +24,17 @@ class RazorpayPaymentResult {
   final String? paymentId;
   final String? subscriptionId;
   final Map<String, String>? raw;
+  final String? signature;
 }
 
 class RazorpayNotConfiguredException implements Exception {
   @override
   String toString() =>
-      'Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to .env';
+      'Razorpay is not configured. Add RAZORPAY_KEY_ID to .env';
 }
 
 /// Razorpay Subscriptions — ₹199/month via Checkout (`subscription_id`).
-///
-/// Plan/subscription are created with the API key secret (dev only). Production
-/// should move this to your backend.
+/// Sensitive API interactions run in Firebase Functions.
 class RazorpayService {
   RazorpayService._();
 
@@ -43,14 +42,7 @@ class RazorpayService {
 
   Razorpay? _razorpay;
   Completer<RazorpayPaymentResult>? _pending;
-  String? _sessionPlanId;
   String? _activeSubscriptionId;
-
-  Map<String, String> get _authHeaders => {
-        'Authorization':
-            'Basic ${base64Encode(utf8.encode('${RazorpayConfig.keyId}:${RazorpayConfig.keySecret}'))}',
-        'Content-Type': 'application/json',
-      };
 
   void _ensureInitialized() {
     _razorpay ??= Razorpay()
@@ -62,77 +54,6 @@ class RazorpayService {
   void dispose() {
     _razorpay?.clear();
     _razorpay = null;
-  }
-
-  Future<Map<String, dynamic>> _post(String path, Map<String, dynamic> body) async {
-    final response = await http.post(
-      Uri.parse('https://api.razorpay.com$path'),
-      headers: _authHeaders,
-      body: jsonEncode(body),
-    );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      return jsonDecode(response.body) as Map<String, dynamic>;
-    }
-
-    if (kDebugMode) {
-      debugPrint('Razorpay $path failed: ${response.statusCode} ${response.body}');
-    }
-    throw RazorpayPaymentException(_messageFromError(response));
-  }
-
-  String _messageFromError(http.Response response) {
-    try {
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-      final error = decoded['error'] as Map<String, dynamic>?;
-      final description = error?['description']?.toString();
-      if (description != null && description.isNotEmpty) {
-        return description;
-      }
-    } catch (_) {
-      // Fall through to generic message.
-    }
-    return 'Could not start subscription (${response.statusCode}).';
-  }
-
-  Future<String> _resolvePlanId() async {
-    final fromEnv = RazorpayConfig.planId;
-    if (fromEnv.isNotEmpty) return fromEnv;
-    if (_sessionPlanId != null) return _sessionPlanId!;
-
-    final plan = await _post('/v1/plans', {
-      'period': 'monthly',
-      'interval': 1,
-      'item': {
-        'name': RazorpayConfig.membershipPlanName,
-        'amount': RazorpayConfig.membershipAmountPaise,
-        'currency': 'INR',
-        'description': '₹199 per month',
-      },
-    });
-
-    final id = plan['id']?.toString();
-    if (id == null || id.isEmpty) {
-      throw RazorpayPaymentException('Razorpay did not return a plan id.');
-    }
-    _sessionPlanId = id;
-    if (kDebugMode) {
-      debugPrint('Razorpay plan created: $id');
-    }
-    return id;
-  }
-
-  Future<Map<String, dynamic>> _createSubscription({
-    required String planId,
-    required String customerId,
-  }) async {
-    return _post('/v1/subscriptions', {
-      'plan_id': planId,
-      'total_count': RazorpayConfig.subscriptionTotalCount,
-      'quantity': 1,
-      'customer_notify': 1,
-      'notes': {'custId': customerId},
-    });
   }
 
   void _onSuccess(PaymentSuccessResponse response) {
@@ -152,6 +73,7 @@ class RazorpayService {
           'subscriptionId': _activeSubscriptionId ?? '',
           'signature': response.signature ?? '',
         },
+        signature: response.signature,
       ),
     );
     _pending = null;
@@ -209,15 +131,17 @@ class RazorpayService {
       throw RazorpayNotConfiguredException();
     }
 
-    final planId = await _resolvePlanId();
-    final subscription = await _createSubscription(
-      planId: planId,
-      customerId: customerId,
+    final checkout = await FunctionsService.instance.call(
+      'createEntryPassCheckout',
+      data: {'customerId': customerId},
     );
-
-    final subscriptionId = subscription['id']?.toString();
+    final subscriptionId = checkout['subscriptionId']?.toString();
     if (subscriptionId == null || subscriptionId.isEmpty) {
       throw RazorpayPaymentException('Razorpay did not return a subscription id.');
+    }
+    final keyId = checkout['keyId']?.toString();
+    if (keyId == null || keyId.isEmpty) {
+      throw RazorpayPaymentException('Razorpay did not return a key id.');
     }
 
     _activeSubscriptionId = subscriptionId;
@@ -225,7 +149,7 @@ class RazorpayService {
     _pending = Completer<RazorpayPaymentResult>();
 
     final options = <String, dynamic>{
-      'key': RazorpayConfig.keyId,
+      'key': keyId,
       'subscription_id': subscriptionId,
       'name': RazorpayConfig.appName,
       'description': 'Monthly membership · ₹199/month',
@@ -235,12 +159,27 @@ class RazorpayService {
 
     if (kDebugMode) {
       debugPrint(
-        'Razorpay subscription checkout: sub=$subscriptionId plan=$planId test=${RazorpayConfig.isTestMode}',
+        'Razorpay subscription checkout: sub=$subscriptionId test=${RazorpayConfig.isTestMode}',
       );
     }
 
     _razorpay!.open(options);
     return _pending!.future;
+  }
+
+  Future<void> confirmMembership({
+    required String paymentId,
+    required String subscriptionId,
+    required String signature,
+  }) async {
+    await FunctionsService.instance.call(
+      'confirmEntryPassPayment',
+      data: {
+        'paymentId': paymentId,
+        'subscriptionId': subscriptionId,
+        'signature': signature,
+      },
+    );
   }
 }
 

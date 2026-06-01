@@ -12,15 +12,9 @@ abstract final class RazorpayConfig {
 
   static String get keyId => dotenv.env['RAZORPAY_KEY_ID']?.trim() ?? '';
 
-  static String get keySecret => dotenv.env['RAZORPAY_KEY_SECRET']?.trim() ?? '';
-
-  /// Plan from Razorpay Dashboard → Subscriptions → Plans (`plan_…`).
-  /// If empty, a monthly ₹199 plan is created via API on first checkout.
-  static String get planId => dotenv.env['RAZORPAY_PLAN_ID']?.trim() ?? '';
-
   static bool get isTestMode => keyId.startsWith('rzp_test_');
 
-  static bool get isConfigured => keyId.isNotEmpty && keySecret.isNotEmpty;
+  static bool get isConfigured => keyId.isNotEmpty;
 
   /// Skip checkout while developing. Set `PAYMENT_BYPASS=true` in `.env`.
   static bool get bypassPayment {
