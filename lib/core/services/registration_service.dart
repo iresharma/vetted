@@ -1,26 +1,63 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:vetted_club_mobile/core/services/functions_service.dart';
 
+/// Gate progress for the post-auth registration flow.
+enum RegistrationGate {
+  /// Verification intro (first-time only).
+  intro,
+
+  /// Membership / entry pass payment.
+  entryPass,
+
+  /// DigiLocker identity step.
+  digilocker,
+
+  /// Welcome / you're in.
+  welcome,
+}
+
 class RegistrationStatus {
   const RegistrationStatus({
     required this.exists,
     required this.hasPaidEntryPass,
+    required this.hasActiveSubscription,
     required this.isIdentityVerified,
     required this.isRegistrationComplete,
+    required this.isProfileComplete,
+    this.completenessPct = 0,
   });
 
   final bool exists;
   final bool hasPaidEntryPass;
+  final bool hasActiveSubscription;
   final bool isIdentityVerified;
   final bool isRegistrationComplete;
+  final bool isProfileComplete;
+  final int completenessPct;
+
+  /// Paid entry pass and/or an active Razorpay subscription row.
+  bool get hasMembership => hasPaidEntryPass || hasActiveSubscription;
+
+  /// Which registration screen to show when resuming after app restart.
+  RegistrationGate get resumeGate {
+    if (isRegistrationComplete) return RegistrationGate.welcome;
+    if (!hasMembership) {
+      return exists ? RegistrationGate.entryPass : RegistrationGate.intro;
+    }
+    if (!isIdentityVerified) return RegistrationGate.digilocker;
+    return RegistrationGate.welcome;
+  }
 
   factory RegistrationStatus.fromMap(Map<String, dynamic> map) {
     bool asBool(String key) => map[key] == true;
     return RegistrationStatus(
       exists: asBool('exists'),
       hasPaidEntryPass: asBool('hasPaidEntryPass'),
+      hasActiveSubscription: asBool('hasActiveSubscription'),
       isIdentityVerified: asBool('isIdentityVerified'),
       isRegistrationComplete: asBool('isRegistrationComplete'),
+      isProfileComplete: asBool('isProfileComplete'),
+      completenessPct: (map['completenessPct'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -36,6 +73,10 @@ class RegistrationService {
       _statusByUserId[uid]?.isRegistrationComplete ?? false;
 
   RegistrationStatus? statusFor(String uid) => _statusByUserId[uid];
+
+  void cacheStatus(String uid, RegistrationStatus status) {
+    _statusByUserId[uid] = status;
+  }
 
   Future<void> bootstrap(User user) async {
     await FunctionsService.instance.call(

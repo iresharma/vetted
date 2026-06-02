@@ -5,6 +5,7 @@ export 'atoms/vc_selection_pill.dart';
 export 'atoms/vc_status_bar.dart';
 export 'atoms/vc_trust_badge.dart';
 export 'molecules/vc_neopop_card.dart';
+export 'molecules/vc_flow_step_row.dart';
 export 'molecules/vc_onboarding_dots.dart';
 export 'molecules/vc_otp_input.dart';
 export 'molecules/vc_progress_pips.dart';

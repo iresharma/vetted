@@ -1,9 +1,14 @@
 -- ============================================================
 --  THE VETTED CLUB — Clean PostgreSQL Schema
---  Version 3.0 | June 2026
+--  Version 3.1 | June 2026
 --  Tables + Indexes + Enums + RLS only.
 --  No triggers. No stored functions. No computed columns.
 --  All logic lives in Cloud Functions (JS/Python).
+--
+--  FIRESTORE (not in this schema):
+--    chat_threads/{threadId}   — match threads, last message preview, unread counts
+--    chat_threads/{threadId}/messages/{messageId}
+--    user_presence/{uid}       — online status, last_seen_at, device info
 -- ============================================================
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
@@ -72,8 +77,11 @@ CREATE TYPE report_reason_type AS ENUM (
 CREATE TYPE account_status_type AS ENUM (
   'pending_verification', 'active', 'suspended', 'deleted'
 );
-CREATE TYPE message_type AS ENUM (
-  'text', 'image', 'voice', 'system'
+CREATE TYPE identity_verification_status_type AS ENUM (
+  'pending', 'completed', 'failed', 'expired'
+);
+CREATE TYPE identity_verification_provider_type AS ENUM (
+  'setu_digilocker'
 );
 CREATE TYPE notification_type AS ENUM (
   'new_match', 'new_message', 'daily_queue_ready',
@@ -117,7 +125,61 @@ CREATE INDEX idx_users_last_active ON users(last_active_at DESC);
 
 
 -- ============================================================
---  2. PROFILES
+--  2. IDENTITY VERIFICATIONS (Setu + DigiLocker)
+--  One row per verification attempt. Raw Aadhaar is NEVER stored.
+--  Your Cloud Function:
+--    1. Creates a Setu DigiLocker session → status = pending
+--    2. On callback, HMAC-SHA256(normalized_aadhaar, server_pepper)
+--       → aadhaar_hash (for duplicate-account detection only)
+--    3. Writes verified_name / verified_dob to this row AND users table
+--  Client reads verification status from users.is_identity_verified.
+-- ============================================================
+
+CREATE TABLE identity_verifications (
+  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  uid                     TEXT NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
+
+  provider                identity_verification_provider_type NOT NULL DEFAULT 'setu_digilocker',
+  status                  identity_verification_status_type NOT NULL DEFAULT 'pending',
+
+  -- Setu session identifiers — written at initiation / callback
+  setu_request_id         TEXT UNIQUE,
+  setu_verification_id    TEXT,
+
+  -- HMAC-SHA256 of normalized Aadhaar + server-side pepper.
+  -- Populated only on status = completed. Used to block re-registration
+  -- with the same Aadhaar on a different account. Never exposed to client.
+  aadhaar_hash            BYTEA,
+  aadhaar_hash_version    SMALLINT NOT NULL DEFAULT 1,
+
+  -- Snapshot from Setu callback (also copied to users on success)
+  verified_name           TEXT,
+  verified_dob            DATE,
+
+  initiated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at            TIMESTAMPTZ,
+  expires_at              TIMESTAMPTZ,
+  failure_reason          TEXT,
+
+  -- Non-PII Setu metadata for debugging (request IDs, doc type, etc.)
+  setu_callback_metadata  JSONB,
+  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_idv_uid            ON identity_verifications(uid, created_at DESC);
+CREATE INDEX idx_idv_setu_request   ON identity_verifications(setu_request_id)
+  WHERE setu_request_id IS NOT NULL;
+CREATE INDEX idx_idv_pending        ON identity_verifications(uid, status)
+  WHERE status = 'pending';
+
+-- One completed verification per Aadhaar across the entire platform
+CREATE UNIQUE INDEX idx_idv_aadhaar_hash
+  ON identity_verifications(aadhaar_hash)
+  WHERE status = 'completed' AND aadhaar_hash IS NOT NULL;
+
+
+-- ============================================================
+--  3. PROFILES
 --  Everything the user fills in during onboarding + settings.
 --  completeness_pct and is_live written by your Cloud Function.
 -- ============================================================
@@ -186,7 +248,7 @@ CREATE INDEX idx_profiles_interests  ON profiles USING GIN (interests);
 
 
 -- ============================================================
---  3. PREFERENCES & DEALBREAKERS
+--  4. PREFERENCES & DEALBREAKERS
 --  NULL on any db_ field = no preference / any is fine.
 --  rank_ fields: 1 = highest priority, 7 = lowest.
 --  Your Cloud Function converts rank to weight: weight = 8 - rank
@@ -223,7 +285,7 @@ CREATE TABLE preferences (
 
 
 -- ============================================================
---  4. SUBSCRIPTIONS
+--  5. SUBSCRIPTIONS
 --  Your Cloud Function writes a new row on each Razorpay
 --  subscription webhook. Check active status by querying
 --  status = 'active' AND current_period_end > NOW()
@@ -251,7 +313,7 @@ CREATE INDEX idx_subs_period_end ON subscriptions(current_period_end);
 
 
 -- ============================================================
---  5. TRUST SCORES
+--  6. TRUST SCORES
 --  One row per user. All fields written by your Cloud Function.
 --  Your CF calls fn_recompute_trust(uid) after:
 --    - event attendance / no-show
@@ -289,7 +351,7 @@ CREATE INDEX idx_trust_banned ON trust_scores(is_banned) WHERE is_banned = TRUE;
 
 
 -- ============================================================
---  6. INTERACTIONS
+--  7. INTERACTIONS
 --  Every pass / interest / match / block between two users.
 --  actor_uid acted on target_uid.
 --  Your CF checks for mutual interest and sets is_mutual = true.
@@ -318,7 +380,7 @@ CREATE INDEX idx_inter_seen    ON interactions(actor_uid)
 
 
 -- ============================================================
---  7. DAILY QUEUE
+--  8. DAILY QUEUE
 --  Written by your Cloud Function every morning at 6am IST.
 --  App reads: SELECT * FROM daily_queue
 --             WHERE uid = ? AND queue_date = today
@@ -345,7 +407,7 @@ CREATE INDEX idx_queue_uid_date ON daily_queue(uid, queue_date);
 
 
 -- ============================================================
---  8. EVENTS
+--  9. EVENTS
 -- ============================================================
 
 CREATE TABLE events (
@@ -377,7 +439,7 @@ CREATE INDEX idx_events_status    ON events(status);
 
 
 -- ============================================================
---  9. EVENT TICKETS
+--  10. EVENT TICKETS
 -- ============================================================
 
 CREATE TABLE event_tickets (
@@ -403,7 +465,7 @@ CREATE INDEX idx_tickets_code  ON event_tickets(check_in_code);
 
 
 -- ============================================================
---  10. PRE-EVENT MATCHES
+--  11. PRE-EVENT MATCHES
 --  Written by CF 48h before each event.
 --  Query: SELECT * FROM pre_event_matches
 --         WHERE uid = ? AND event_id = ?
@@ -428,72 +490,7 @@ CREATE INDEX idx_pre_event ON pre_event_matches(uid, event_id);
 
 
 -- ============================================================
---  11. CHAT THREADS
---  One row per matched pair. Created by CF on mutual match.
---  user_a_uid is always LEAST(uid1, uid2) alphabetically —
---  enforced by CHECK — so there's never a duplicate pair.
--- ============================================================
-
-CREATE TABLE chat_threads (
-  id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_a_uid              TEXT NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
-  user_b_uid              TEXT NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
-  interaction_id          UUID REFERENCES interactions(id) ON DELETE SET NULL,
-  created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  last_message_at         TIMESTAMPTZ,
-  last_message_preview    TEXT,           -- updated by CF on new message
-  is_active               BOOLEAN NOT NULL DEFAULT TRUE,
-  unread_count_a          SMALLINT NOT NULL DEFAULT 0,  -- updated by CF
-  unread_count_b          SMALLINT NOT NULL DEFAULT 0,  -- updated by CF
-
-  UNIQUE (user_a_uid, user_b_uid),
-  CHECK  (user_a_uid < user_b_uid)
-);
-
-CREATE INDEX idx_threads_a ON chat_threads(user_a_uid, last_message_at DESC);
-CREATE INDEX idx_threads_b ON chat_threads(user_b_uid, last_message_at DESC);
-
-
--- ============================================================
---  12. CHAT MESSAGES
--- ============================================================
-
-CREATE TABLE chat_messages (
-  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  thread_id         UUID NOT NULL REFERENCES chat_threads(id) ON DELETE CASCADE,
-  sender_uid        TEXT NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
-  type              message_type NOT NULL DEFAULT 'text',
-  content           TEXT,
-  media_url         TEXT,
-  duration_seconds  SMALLINT,
-  is_read           BOOLEAN NOT NULL DEFAULT FALSE,
-  read_at           TIMESTAMPTZ,
-  is_deleted        BOOLEAN NOT NULL DEFAULT FALSE,
-  deleted_at        TIMESTAMPTZ,
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_messages_thread ON chat_messages(thread_id, created_at DESC);
-CREATE INDEX idx_messages_unread ON chat_messages(thread_id, is_read)
-  WHERE is_read = FALSE;
-
-
--- ============================================================
---  13. USER PRESENCE
---  Updated by CF on app heartbeat (every 30s while foregrounded).
--- ============================================================
-
-CREATE TABLE user_presence (
-  uid              TEXT PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,
-  last_seen_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  is_online        BOOLEAN NOT NULL DEFAULT FALSE,
-  device_platform  TEXT,
-  app_version      TEXT
-);
-
-
--- ============================================================
---  14. PUSH TOKENS
+--  12. PUSH TOKENS
 --  One user can have multiple devices.
 -- ============================================================
 
@@ -511,7 +508,7 @@ CREATE INDEX idx_push_uid ON push_tokens(uid) WHERE is_active = TRUE;
 
 
 -- ============================================================
---  15. NOTIFICATIONS
+--  13. NOTIFICATIONS
 -- ============================================================
 
 CREATE TABLE notifications (
@@ -533,7 +530,7 @@ CREATE INDEX idx_notifs_unread ON notifications(uid, is_read) WHERE is_read = FA
 
 
 -- ============================================================
---  16. REPORTS
+--  14. REPORTS
 -- ============================================================
 
 CREATE TABLE reports (
@@ -559,7 +556,7 @@ CREATE INDEX idx_reports_unreviewed ON reports(is_reviewed, created_at)
 
 
 -- ============================================================
---  17. BLOCKED USERS
+--  15. BLOCKED USERS
 -- ============================================================
 
 CREATE TABLE blocked_users (
@@ -576,7 +573,7 @@ CREATE INDEX idx_blocks_blocked ON blocked_users(blocked_uid);
 
 
 -- ============================================================
---  18. ADMIN AUDIT LOG
+--  16. ADMIN AUDIT LOG
 --  Append-only. Never update or delete rows here.
 -- ============================================================
 
@@ -600,20 +597,18 @@ CREATE INDEX idx_audit_admin  ON admin_audit_log(admin_uid, created_at DESC);
 --  Client SDK runs as authenticated user (RLS applies).
 -- ============================================================
 
-ALTER TABLE users             ENABLE ROW LEVEL SECURITY;
-ALTER TABLE profiles          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE preferences       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subscriptions     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE trust_scores      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE interactions      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_queue       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE events            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE event_tickets     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE pre_event_matches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE chat_threads      ENABLE ROW LEVEL SECURITY;
-ALTER TABLE chat_messages     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE user_presence     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE push_tokens       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users                  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE identity_verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE preferences            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE trust_scores           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE interactions           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_queue            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE events                 ENABLE ROW LEVEL SECURITY;
+ALTER TABLE event_tickets          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pre_event_matches      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE push_tokens            ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blocked_users     ENABLE ROW LEVEL SECURITY;
@@ -627,6 +622,10 @@ $$ LANGUAGE SQL STABLE;
 -- users: own row only
 CREATE POLICY p_users_self
   ON users USING (uid = current_uid());
+
+-- identity verifications: service role only (contains aadhaar_hash)
+CREATE POLICY p_idv_deny
+  ON identity_verifications USING (FALSE);
 
 -- profiles: own row full access
 CREATE POLICY p_profiles_own
@@ -660,7 +659,6 @@ CREATE POLICY p_trust_self      ON trust_scores      USING (uid = current_uid())
 CREATE POLICY p_queue_self      ON daily_queue       USING (uid = current_uid());
 CREATE POLICY p_tickets_self    ON event_tickets     USING (uid = current_uid());
 CREATE POLICY p_pre_event_self  ON pre_event_matches USING (uid = current_uid());
-CREATE POLICY p_presence_self   ON user_presence     USING (uid = current_uid());
 CREATE POLICY p_tokens_self     ON push_tokens       USING (uid = current_uid());
 CREATE POLICY p_notifs_self     ON notifications     USING (uid = current_uid());
 CREATE POLICY p_blocks_self     ON blocked_users     USING (blocker_uid = current_uid());
@@ -671,22 +669,6 @@ CREATE POLICY p_audit_deny      ON admin_audit_log   USING (FALSE); -- service r
 CREATE POLICY p_inter_participant
   ON interactions
   USING (actor_uid = current_uid() OR target_uid = current_uid());
-
--- chat threads: both participants can read + write
-CREATE POLICY p_threads_participant
-  ON chat_threads
-  USING (user_a_uid = current_uid() OR user_b_uid = current_uid());
-
--- chat messages: only members of the thread
-CREATE POLICY p_messages_participant
-  ON chat_messages
-  USING (
-    EXISTS (
-      SELECT 1 FROM chat_threads
-      WHERE id = thread_id
-        AND (user_a_uid = current_uid() OR user_b_uid = current_uid())
-    )
-  );
 
 -- events: public read, no write from client
 CREATE POLICY p_events_public ON events FOR SELECT USING (TRUE);

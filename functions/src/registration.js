@@ -242,6 +242,34 @@ exports.confirmEntryPassPayment = onCall(
   }
 );
 
+exports.getProfileDraft = onCall(callableDefaults, async (request) => {
+  const uid = requireUid(request);
+  try {
+    const result = await query(
+      `SELECT
+         u.verified_name,
+         u.verified_age,
+         p.photo_urls
+       FROM users u
+       LEFT JOIN profiles p ON p.uid = u.uid
+       WHERE u.uid = $1`,
+      [uid]
+    );
+    if (result.rowCount === 0) {
+      throw new HttpsError("not-found", "User not found.");
+    }
+    const row = result.rows[0];
+    return {
+      verifiedName: row.verified_name,
+      verifiedAge: row.verified_age,
+      photoUrls: Array.isArray(row.photo_urls) ? row.photo_urls : [],
+    };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    throw mapDbError(error);
+  }
+});
+
 exports.getRegistrationStatus = onCall(callableDefaults, async (request) => {
   const uid = requireUid(request);
   try {
@@ -252,6 +280,7 @@ exports.getRegistrationStatus = onCall(callableDefaults, async (request) => {
          u.is_identity_verified,
          u.account_status,
          p.completeness_pct,
+         COALESCE(p.is_live, FALSE) AS is_profile_live,
          EXISTS (
            SELECT 1
            FROM subscriptions s
@@ -268,6 +297,7 @@ exports.getRegistrationStatus = onCall(callableDefaults, async (request) => {
       return {
         exists: false,
         isRegistrationComplete: false,
+        isProfileComplete: false,
       };
     }
     const row = statusResult.rows[0];
@@ -280,6 +310,7 @@ exports.getRegistrationStatus = onCall(callableDefaults, async (request) => {
       hasActiveSubscription: Boolean(row.has_active_subscription),
       accountStatus: row.account_status,
       completenessPct: Number(row.completeness_pct || 0),
+      isProfileComplete: Boolean(row.is_profile_live),
       isRegistrationComplete,
     };
   } catch (error) {

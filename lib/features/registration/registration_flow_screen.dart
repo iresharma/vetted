@@ -6,34 +6,75 @@ import 'package:vetted_club_mobile/core/theme/theme.dart';
 import 'package:vetted_club_mobile/features/registration/screens/digilocker_screen.dart';
 import 'package:vetted_club_mobile/features/registration/screens/entry_pass_screen.dart';
 import 'package:vetted_club_mobile/features/registration/screens/verification_intro_screen.dart';
+import 'package:vetted_club_mobile/features/profile/profile_flow_screen.dart';
 import 'package:vetted_club_mobile/features/registration/screens/youre_in_screen.dart';
 
 enum _RegistrationStep { intro, entryPass, digilocker, youreIn }
 
 /// Post-auth registration: intro → membership → DigiLocker → welcome.
 class RegistrationFlowScreen extends StatefulWidget {
-  const RegistrationFlowScreen({super.key, required this.user});
+  const RegistrationFlowScreen({
+    super.key,
+    required this.user,
+    this.initialStatus,
+  });
 
   final User user;
+
+  /// Status loaded by [AuthGate]; used to resume the correct step on cold start.
+  final RegistrationStatus? initialStatus;
 
   @override
   State<RegistrationFlowScreen> createState() => _RegistrationFlowScreenState();
 }
 
 class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
-  _RegistrationStep _step = _RegistrationStep.intro;
+  late _RegistrationStep _step;
   bool _signingOut = false;
   bool _bootstrapping = true;
+  String? _bootstrapError;
 
   @override
   void initState() {
     super.initState();
+    _step = _stepFromGate(
+      widget.initialStatus?.resumeGate ?? RegistrationGate.intro,
+    );
     _bootstrap();
   }
 
+  _RegistrationStep _stepFromGate(RegistrationGate gate) => switch (gate) {
+        RegistrationGate.intro => _RegistrationStep.intro,
+        RegistrationGate.entryPass => _RegistrationStep.entryPass,
+        RegistrationGate.digilocker => _RegistrationStep.digilocker,
+        RegistrationGate.welcome => _RegistrationStep.youreIn,
+      };
+
+  void _applyStatus(RegistrationStatus status) {
+    final next = _stepFromGate(status.resumeGate);
+    if (_step != next) {
+      setState(() => _step = next);
+    }
+  }
+
   Future<void> _bootstrap() async {
+    setState(() {
+      _bootstrapping = true;
+      _bootstrapError = null;
+    });
     try {
       await RegistrationService.instance.bootstrap(widget.user);
+      final status = RegistrationService.instance.statusFor(widget.user.uid);
+      if (status != null && mounted) {
+        _applyStatus(status);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _bootstrapError =
+            'Could not sync your account. Check your connection and retry.';
+      });
+      return;
     } finally {
       if (mounted) setState(() => _bootstrapping = false);
     }
@@ -66,6 +107,36 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
           child: CircularProgressIndicator(
             color: AppColors.violet,
             strokeWidth: 2,
+          ),
+        ),
+      );
+    }
+
+    if (_bootstrapError != null) {
+      return Scaffold(
+        backgroundColor: AppColors.bg,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  _bootstrapError!,
+                  textAlign: TextAlign.center,
+                  style: AppTypography.body(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 24),
+                FilledButton(
+                  onPressed: _bootstrap,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.violet,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -106,6 +177,11 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
                 key: const ValueKey('youre_in'),
                 onBuildBiodata: () {
                   _completeRegistration();
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute<void>(
+                      builder: (_) => ProfileFlowScreen(user: widget.user),
+                    ),
+                  );
                 },
               ),
           },

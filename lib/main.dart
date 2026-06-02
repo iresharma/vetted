@@ -33,11 +33,14 @@ Future<void> main() async {
             : const AppleAppAttestWithDeviceCheckFallbackProvider(),
   );
 
-  if (kDebugMode) {
-    await logAppCheckDebugToken();
-  }
-
   FunctionsService.instance.configure();
+
+  if (kDebugMode) {
+    // Log after first frame so it does not race with App Check / Auth on hot restart.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      logAppCheckDebugToken();
+    });
+  }
 
   // Simulator/dev: skip real reCAPTCHA. Add the number in Firebase Console →
   // Authentication → Sign-in method → Phone → Phone numbers for testing.

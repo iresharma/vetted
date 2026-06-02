@@ -351,6 +351,7 @@ class _OnboardingStepView extends StatelessWidget {
                               fontSize: headlineSize,
                               fontWeight: FontWeight.w800,
                               height: 1.05,
+                              letterSpacing: 1.5,
                             ),
                           ),
                           const SizedBox(height: 12),

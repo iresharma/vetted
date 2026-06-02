@@ -8,5 +8,6 @@ exports.saveProfileStep = registration.saveProfileStep;
 exports.savePreferencesStep = registration.savePreferencesStep;
 exports.markIdentityVerified = registration.markIdentityVerified;
 exports.getRegistrationStatus = registration.getRegistrationStatus;
+exports.getProfileDraft = registration.getProfileDraft;
 exports.createEntryPassCheckout = registration.createEntryPassCheckout;
 exports.confirmEntryPassPayment = registration.confirmEntryPassPayment;
