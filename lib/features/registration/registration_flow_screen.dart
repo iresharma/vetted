@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:vetted_club_mobile/core/auth/sign_out.dart';
 import 'package:vetted_club_mobile/core/services/registration_service.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
+import 'package:vetted_club_mobile/core/widgets/widgets.dart';
 import 'package:vetted_club_mobile/features/registration/screens/digilocker_screen.dart';
 import 'package:vetted_club_mobile/features/registration/screens/entry_pass_screen.dart';
 import 'package:vetted_club_mobile/features/registration/screens/verification_intro_screen.dart';
@@ -104,10 +105,7 @@ class _RegistrationFlowScreenState extends State<RegistrationFlowScreen> {
       return const Scaffold(
         backgroundColor: AppColors.bg,
         body: Center(
-          child: CircularProgressIndicator(
-            color: AppColors.violet,
-            strokeWidth: 2,
-          ),
+          child: VcLoadingIndicator(logoSize: 72),
         ),
       );
     }

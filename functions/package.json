@@ -8,7 +8,8 @@
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
-    "lint": "node --check index.js src/*.js"
+    "lint": "node --check index.js src/*.js",
+    "test": "node --test test/trust.test.js"
   },
   "dependencies": {
     "firebase-admin": "^13.0.1",

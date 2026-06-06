@@ -8,13 +8,19 @@ class VcVerifiedIdentityCard extends StatelessWidget {
     super.key,
     required this.name,
     required this.age,
+    this.loading = false,
   });
 
   final String? name;
   final int? age;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return const _VerifiedIdentitySkeleton();
+    }
+
     final displayName = (name?.trim().isNotEmpty == true) ? name!.trim() : '—';
     final displayAge = age != null ? '$age' : '—';
 
@@ -48,6 +54,58 @@ class VcVerifiedIdentityCard extends StatelessWidget {
                 .copyWith(fontSize: 11),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _VerifiedIdentitySkeleton extends StatelessWidget {
+  const _VerifiedIdentitySkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return VcSoftCard(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              _ShimmerBar(width: 110, height: 12),
+              const Spacer(),
+              Icon(
+                Icons.lock_outline_rounded,
+                size: 16,
+                color: AppColors.textMuted.withValues(alpha: 0.5),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _ShimmerBar(width: 180, height: 16),
+          const SizedBox(height: 10),
+          _ShimmerBar(width: 48, height: 16),
+          const SizedBox(height: 12),
+          _ShimmerBar(width: 220, height: 10),
+        ],
+      ),
+    );
+  }
+}
+
+class _ShimmerBar extends StatelessWidget {
+  const _ShimmerBar({required this.width, required this.height});
+
+  final double width;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: AppColors.s3,
+        borderRadius: BorderRadius.circular(6),
       ),
     );
   }

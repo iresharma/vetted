@@ -40,8 +40,11 @@ class RegistrationScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final keyboardOpen = bottomInset > 0;
+
+    // Scaffold already resizes above the keyboard — do not add viewInsets again.
     final footerInsets = footerPadding.copyWith(
-      bottom: footerPadding.bottom + bottomInset,
+      bottom: keyboardOpen ? 12 : footerPadding.bottom,
     );
 
     final bodyChild = Padding(padding: bodyPadding, child: body);
@@ -57,7 +60,12 @@ class RegistrationScaffold extends StatelessWidget {
             if (header != null) header!,
             Expanded(
               child: scrollBody
-                  ? SingleChildScrollView(child: bodyChild)
+                  ? SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: EdgeInsets.only(bottom: keyboardOpen ? 24 : 0),
+                      child: bodyChild,
+                    )
                   : Align(
                       alignment: Alignment.topCenter,
                       child: bodyChild,

@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vetted_club_mobile/app.dart';
+import 'package:vetted_club_mobile/core/cache/local_cache.dart';
+import 'package:vetted_club_mobile/core/config/app_check_bootstrap.dart';
 import 'package:vetted_club_mobile/core/config/app_check_debug.dart';
 import 'package:vetted_club_mobile/core/config/app_env.dart';
 import 'package:vetted_club_mobile/core/services/functions_service.dart';
@@ -24,14 +26,9 @@ Future<void> main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  await FirebaseAppCheck.instance.activate(
-    providerAndroid:
-        kDebugMode ? const AndroidDebugProvider() : const AndroidPlayIntegrityProvider(),
-    providerApple:
-        kDebugMode
-            ? const AppleDebugProvider()
-            : const AppleAppAttestWithDeviceCheckFallbackProvider(),
-  );
+  await activateAppCheck();
+
+  await LocalCache.init();
 
   FunctionsService.instance.configure();
 
@@ -50,5 +47,9 @@ Future<void> main() async {
     );
   }
 
-  runApp(const VettedClubApp());
+  runApp(
+    const ProviderScope(
+      child: VettedClubApp(),
+    ),
+  );
 }

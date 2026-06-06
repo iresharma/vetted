@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:vetted_club_mobile/core/cache/local_cache.dart';
 import 'package:vetted_club_mobile/core/services/registration_service.dart';
 
 /// Phone OTP via Firebase Auth.
@@ -83,6 +84,7 @@ class AuthService {
     await _auth.signOut();
     if (uid != null) {
       RegistrationService.instance.clear(uid);
+      await LocalCache.clearUser(uid);
     }
   }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
+import 'package:vetted_club_mobile/core/widgets/widgets.dart';
 
 /// Local or remote photo in a profile slot.
 class ProfilePhotoSlot {
@@ -129,13 +130,10 @@ class _PhotoSlotTile extends StatelessWidget {
                 Container(
                   color: Colors.black.withValues(alpha: 0.45),
                   alignment: Alignment.center,
-                  child: const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.violet,
-                    ),
+                  child: const VcLoadingIndicator(
+                    logoSize: 32,
+                    compact: true,
+                    withGlow: false,
                   ),
                 ),
               if (filled && !slot.uploading)

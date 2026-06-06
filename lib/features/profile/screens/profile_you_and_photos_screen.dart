@@ -1,92 +1,87 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vetted_club_mobile/core/services/photo_storage_service.dart';
-import 'package:vetted_club_mobile/core/services/profile_service.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
+import 'package:vetted_club_mobile/features/profile/data/models/profile_draft.dart';
+import 'package:vetted_club_mobile/features/profile/data/models/profile_schema.dart';
+import 'package:vetted_club_mobile/features/profile/domain/profile_section_hydration.dart';
+import 'package:vetted_club_mobile/features/profile/providers/profile_draft_notifier.dart';
+import 'package:vetted_club_mobile/features/profile/providers/profile_flow_notifier.dart';
+import 'package:vetted_club_mobile/features/profile/providers/profile_section_notifier.dart';
+import 'package:vetted_club_mobile/features/profile/widgets/profile_field_renderer.dart';
+import 'package:vetted_club_mobile/features/profile/widgets/profile_section_loading_scaffold.dart';
 import 'package:vetted_club_mobile/features/profile/widgets/profile_step_header.dart';
 import 'package:vetted_club_mobile/features/profile/widgets/vc_photo_grid.dart';
 import 'package:vetted_club_mobile/features/profile/widgets/vc_verified_identity_card.dart';
 import 'package:vetted_club_mobile/features/registration/widgets/registration_scaffold.dart';
 
-class ProfileYouAndPhotosScreen extends StatefulWidget {
-  const ProfileYouAndPhotosScreen({
-    super.key,
-    required this.onContinue,
-  });
-
-  final VoidCallback onContinue;
-
-  static const maxPhotos = 6;
+class ProfileYouAndPhotosScreen extends ConsumerStatefulWidget {
+  const ProfileYouAndPhotosScreen({super.key});
 
   @override
-  State<ProfileYouAndPhotosScreen> createState() =>
+  ConsumerState<ProfileYouAndPhotosScreen> createState() =>
       _ProfileYouAndPhotosScreenState();
 }
 
-class _ProfileYouAndPhotosScreenState extends State<ProfileYouAndPhotosScreen> {
-  bool _loading = true;
-  bool _saving = false;
-  String? _loadError;
+class _ProfileYouAndPhotosScreenState
+    extends ConsumerState<ProfileYouAndPhotosScreen> {
+  static const sectionId = 'you_and_photos';
+  static const maxPhotos = 8;
 
-  String? _verifiedName;
-  int? _verifiedAge;
   late List<ProfilePhotoSlot> _slots;
+  bool _photosHydrated = false;
 
   @override
   void initState() {
     super.initState();
-    _slots = List.generate(
-      ProfileYouAndPhotosScreen.maxPhotos,
+    _slots = List.generate(maxPhotos, (_) => const ProfilePhotoSlot());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _tryHydratePhotos());
+  }
+
+  void _tryHydratePhotos() {
+    if (_photosHydrated || !mounted) return;
+    _hydratePhotosFromDraft(ref.read(profileDraftProvider).value);
+  }
+
+  void _hydratePhotosFromDraft(ProfileDraft? draft) {
+    if (_photosHydrated || draft == null) return;
+    if (_filledCount > 0) {
+      _photosHydrated = true;
+      return;
+    }
+
+    final urls = draft.values['photo_urls'];
+    if (urls is! List) {
+      _photosHydrated = true;
+      return;
+    }
+
+    final slots = List<ProfilePhotoSlot>.generate(
+      maxPhotos,
       (_) => const ProfilePhotoSlot(),
     );
-    _loadDraft();
-  }
-
-  Future<void> _loadDraft() async {
+    for (var i = 0; i < urls.length && i < slots.length; i++) {
+      slots[i] = ProfilePhotoSlot(remoteUrl: urls[i].toString());
+    }
+    final photoUrls = [
+      for (final slot in slots)
+        if (slot.remoteUrl != null) slot.remoteUrl!,
+    ];
     setState(() {
-      _loading = true;
-      _loadError = null;
+      _photosHydrated = true;
+      _slots = slots;
     });
-
-    try {
-      final draft = await ProfileService.instance.loadDraft();
-      if (!mounted) return;
-
-      final slots = List<ProfilePhotoSlot>.generate(
-        ProfileYouAndPhotosScreen.maxPhotos,
-        (_) => const ProfilePhotoSlot(),
-      );
-      for (var i = 0; i < draft.photoUrls.length && i < slots.length; i++) {
-        slots[i] = ProfilePhotoSlot(remoteUrl: draft.photoUrls[i]);
-      }
-
-      setState(() {
-        _verifiedName = draft.verifiedName;
-        _verifiedAge = draft.verifiedAge;
-        _slots = slots;
-        _loading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loadError = 'Could not load your profile. Check your connection.';
-        _loading = false;
-      });
-    }
+    ref.read(profileSectionProvider(sectionId).notifier).setValue(
+          'photo_urls',
+          photoUrls,
+        );
   }
 
-  int? get _nextEmptyIndex {
-    for (var i = 0; i < _slots.length; i++) {
-      if (_slots[i].isEmpty) return i;
-    }
-    return null;
-  }
+  int get _filledCount => _slots.where((s) => s.isFilled).length;
 
-  int get _filledCount => _slots.where((slot) => slot.isFilled).length;
-
-  bool get _hasUploadInProgress => _slots.any((slot) => slot.uploading);
-
-  bool get _canContinue =>
-      !_loading && !_saving && !_hasUploadInProgress && _filledCount >= 1;
+  bool get _hasUploadInProgress => _slots.any((s) => s.uploading);
 
   List<String> get _photoUrls => [
         for (final slot in _slots)
@@ -98,10 +93,7 @@ class _ProfileYouAndPhotosScreenState extends State<ProfileYouAndPhotosScreen> {
     if (file == null || !mounted) return;
 
     setState(() {
-      _slots[index] = ProfilePhotoSlot(
-        localPath: file.path,
-        uploading: true,
-      );
+      _slots[index] = ProfilePhotoSlot(localPath: file.path, uploading: true);
     });
 
     try {
@@ -110,8 +102,17 @@ class _ProfileYouAndPhotosScreenState extends State<ProfileYouAndPhotosScreen> {
       setState(() {
         _slots[index] = ProfilePhotoSlot(remoteUrl: url);
       });
-    } catch (_) {
+      ref.read(profileSectionProvider(sectionId).notifier).setValue(
+            'photo_urls',
+            _photoUrls,
+          );
+    } on PhotoUploadException catch (e) {
       if (!mounted) return;
+      setState(() => _slots[index] = const ProfilePhotoSlot());
+      _showMessage(e.message);
+    } catch (e) {
+      if (!mounted) return;
+      if (kDebugMode) debugPrint('Photo upload error: $e');
       setState(() => _slots[index] = const ProfilePhotoSlot());
       _showMessage('Photo upload failed. Please try again.');
     }
@@ -124,75 +125,68 @@ class _ProfileYouAndPhotosScreenState extends State<ProfileYouAndPhotosScreen> {
       updated.add(const ProfilePhotoSlot());
       _slots = updated;
     });
+    ref.read(profileSectionProvider(sectionId).notifier).setValue(
+          'photo_urls',
+          _photoUrls,
+        );
   }
 
   Future<void> _saveAndContinue() async {
-    if (!_canContinue) return;
-
-    setState(() => _saving = true);
-    try {
-      await ProfileService.instance.savePhotoUrls(_photoUrls);
-      if (!mounted) return;
-      widget.onContinue();
-    } catch (_) {
-      if (!mounted) return;
-      _showMessage('Could not save photos. Please try again.');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    ref.read(profileSectionProvider(sectionId).notifier).setValue(
+          'photo_urls',
+          _photoUrls,
+        );
+    final ok =
+        await ref.read(profileSectionProvider(sectionId).notifier).save();
+    if (!ok || !mounted) return;
+    HapticFeedback.mediumImpact();
+    ref.read(profileFlowProvider.notifier).nextFrom(ProfileFlowStep.youAndPhotos);
   }
 
   void _showMessage(String text) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(text)),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const RegistrationScaffold(
-        header: ProfileStepHeader(stepIndex: 0),
-        ctaLabel: 'Continue →',
-        ctaEnabled: false,
-        body: Center(
-          child: Padding(
-            padding: EdgeInsets.only(top: 48),
-            child: CircularProgressIndicator(
-              color: AppColors.violet,
-              strokeWidth: 2,
-            ),
-          ),
-        ),
-      );
+    ref.listen(profileDraftProvider, (previous, next) {
+      if (!next.hasValue || _photosHydrated) return;
+      Future.microtask(() {
+        if (mounted) _hydratePhotosFromDraft(next.value);
+      });
+    });
+
+    final draftAsync = ref.watch(profileDraftProvider);
+    final draft = draftAsync.value;
+
+    final ready = ProfileSectionHydration.isReady(
+      ref: ref,
+      sectionId: sectionId,
+      probeKeys: ProfileSectionProbeKeys.youAndPhotos,
+    );
+
+    if (!ready) {
+      return const ProfileSectionLoadingScaffold(stepIndex: 0);
     }
 
-    if (_loadError != null) {
-      return RegistrationScaffold(
-        header: const ProfileStepHeader(stepIndex: 0),
-        ctaLabel: 'Retry',
-        onCta: _loadDraft,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              _loadError!,
-              style: AppTypography.body(color: AppColors.textSecondary),
-            ),
-          ],
-        ),
-      );
-    }
+    final sectionState = ref.watch(profileSectionProvider(sectionId));
+    final notifier = ref.read(profileSectionProvider(sectionId).notifier);
+    final form = sectionState.formState;
+    final canContinue = sectionState.canContinue &&
+        !_hasUploadInProgress &&
+        _filledCount >= 3;
+    final identityLoading =
+        draftAsync.isLoading && draft?.verifiedName == null;
 
     return RegistrationScaffold(
       header: const ProfileStepHeader(stepIndex: 0),
       ctaLabel: 'Continue →',
-      ctaEnabled: _canContinue,
-      ctaLoading: _saving,
+      ctaEnabled: canContinue,
+      ctaLoading: sectionState.saving,
       onCta: _saveAndContinue,
-      footerCaption: _filledCount == 0
-          ? 'Add at least one photo to continue'
-          : '$_filledCount of ${ProfileYouAndPhotosScreen.maxPhotos} photos',
+      footerCaption: _filledCount < 3
+          ? 'Add at least 3 photos to continue'
+          : '${sectionState.requiredRemaining} required fields left',
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -207,56 +201,78 @@ class _ProfileYouAndPhotosScreenState extends State<ProfileYouAndPhotosScreen> {
           const SizedBox(height: 10),
           Text(
             'Your name and age are locked from verification. '
-            'Add up to six photos — first one is your main shot.',
+            'Add up to eight photos — first one is your main shot.',
             style: AppTypography.body(color: AppColors.textSecondary).copyWith(
               fontSize: 15,
               height: 1.6,
             ),
           ),
+          if (draftAsync.hasError && draft == null) ...[
+            const SizedBox(height: 16),
+            _DraftLoadBanner(
+              onRetry: () => ref.invalidate(profileDraftProvider),
+            ),
+          ],
           const SizedBox(height: 24),
           VcVerifiedIdentityCard(
-            name: _verifiedName,
-            age: _verifiedAge,
+            name: draft?.verifiedName,
+            age: draft?.verifiedAge,
+            loading: identityLoading,
           ),
           const SizedBox(height: 24),
-          Text(
-            'Photos',
-            style: AppTypography.eyebrow(color: AppColors.violet),
-          ),
-          const SizedBox(height: 12),
-          VcPhotoGrid(
-            slots: _slots,
-            maxPhotos: ProfileYouAndPhotosScreen.maxPhotos,
-            onAdd: (index) {
-              if (_slots[index].isEmpty) {
-                _pickPhoto(index);
-              } else if (_nextEmptyIndex != null) {
-                _pickPhoto(_nextEmptyIndex!);
-              }
-            },
-            onRemove: _removePhoto,
-          ),
-          const SizedBox(height: 20),
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-            decoration: BoxDecoration(
-              color: AppColors.s1,
-              borderRadius: const BorderRadius.only(
-                topRight: Radius.circular(8),
-                bottomRight: Radius.circular(8),
+          for (final field in form.visibleFields)
+            if (field.type == ProfileFieldType.photoUpload)
+              ProfileFieldRenderer(
+                field: field,
+                sectionId: sectionId,
+                value: _photoUrls,
+                photoSlots: _slots,
+                maxPhotos: maxPhotos,
+                onPhotoAdd: _pickPhoto,
+                onPhotoRemove: _removePhoto,
+                onChanged: (_) {},
+              )
+            else
+              ProfileFieldRenderer(
+                field: field,
+                sectionId: sectionId,
+                value: form.valueFor(field.id),
+                onChanged: (v) => notifier.setValue(field.id, v),
               ),
-              border: Border(
-                left: BorderSide(color: AppColors.violet, width: 3),
-              ),
-            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DraftLoadBanner extends StatelessWidget {
+  const _DraftLoadBanner({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.amberDim,
+        borderRadius: AppRadius.r12,
+        border: Border.all(color: AppColors.amber.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
             child: Text(
-              'Show your face clearly in at least one photo. '
-              'No group shots as your main pic.',
-              style: AppTypography.supporting(color: AppColors.textSecondary)
-                  .copyWith(
-                fontSize: 13,
-                fontStyle: FontStyle.italic,
-                height: 1.55,
+              'Could not sync saved profile data. You can still fill the form.',
+              style: AppTypography.supporting(color: AppColors.amber),
+            ),
+          ),
+          TextButton(
+            onPressed: onRetry,
+            child: Text(
+              'Retry',
+              style: AppTypography.supporting(color: AppColors.amber).copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),

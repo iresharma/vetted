@@ -9,6 +9,10 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // Must run before Firebase initializes — DeviceCheck is unavailable on Simulator.
+    #if DEBUG
+    AppCheck.setAppCheckProviderFactory(AppCheckDebugProviderFactory())
+    #endif
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

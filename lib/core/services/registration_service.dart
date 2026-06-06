@@ -24,7 +24,10 @@ class RegistrationStatus {
     required this.isIdentityVerified,
     required this.isRegistrationComplete,
     required this.isProfileComplete,
-    this.completenessPct = 0,
+    this.trustScore = 0,
+    this.trustTier = 'trusted',
+    this.profilePoints = 0,
+    this.behaviorPoints = 0,
   });
 
   final bool exists;
@@ -33,7 +36,10 @@ class RegistrationStatus {
   final bool isIdentityVerified;
   final bool isRegistrationComplete;
   final bool isProfileComplete;
-  final int completenessPct;
+  final int trustScore;
+  final String trustTier;
+  final int profilePoints;
+  final int behaviorPoints;
 
   /// Paid entry pass and/or an active Razorpay subscription row.
   bool get hasMembership => hasPaidEntryPass || hasActiveSubscription;
@@ -50,6 +56,7 @@ class RegistrationStatus {
 
   factory RegistrationStatus.fromMap(Map<String, dynamic> map) {
     bool asBool(String key) => map[key] == true;
+    int asInt(String key) => (map[key] as num?)?.toInt() ?? 0;
     return RegistrationStatus(
       exists: asBool('exists'),
       hasPaidEntryPass: asBool('hasPaidEntryPass'),
@@ -57,7 +64,38 @@ class RegistrationStatus {
       isIdentityVerified: asBool('isIdentityVerified'),
       isRegistrationComplete: asBool('isRegistrationComplete'),
       isProfileComplete: asBool('isProfileComplete'),
-      completenessPct: (map['completenessPct'] as num?)?.toInt() ?? 0,
+      trustScore: asInt('trustScore'),
+      trustTier: (map['trustTier'] as String?) ?? 'trusted',
+      profilePoints: asInt('profilePoints'),
+      behaviorPoints: asInt('behaviorPoints'),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'exists': exists,
+        'hasPaidEntryPass': hasPaidEntryPass,
+        'hasActiveSubscription': hasActiveSubscription,
+        'isIdentityVerified': isIdentityVerified,
+        'isRegistrationComplete': isRegistrationComplete,
+        'isProfileComplete': isProfileComplete,
+        'trustScore': trustScore,
+        'trustTier': trustTier,
+        'profilePoints': profilePoints,
+        'behaviorPoints': behaviorPoints,
+      };
+
+  factory RegistrationStatus.fromJson(Map<String, dynamic> json) {
+    return RegistrationStatus(
+      exists: json['exists'] == true,
+      hasPaidEntryPass: json['hasPaidEntryPass'] == true,
+      hasActiveSubscription: json['hasActiveSubscription'] == true,
+      isIdentityVerified: json['isIdentityVerified'] == true,
+      isRegistrationComplete: json['isRegistrationComplete'] == true,
+      isProfileComplete: json['isProfileComplete'] == true,
+      trustScore: (json['trustScore'] as num?)?.toInt() ?? 0,
+      trustTier: (json['trustTier'] as String?) ?? 'trusted',
+      profilePoints: (json['profilePoints'] as num?)?.toInt() ?? 0,
+      behaviorPoints: (json['behaviorPoints'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -117,6 +155,12 @@ class RegistrationService {
 
   Future<void> savePreferencesStep(Map<String, dynamic> payload) async {
     await FunctionsService.instance.call('savePreferencesStep', data: payload);
+  }
+
+  /// Marks the profile live after the member confirms on the completion screen.
+  Future<RegistrationStatus> enterClub(String uid) async {
+    await FunctionsService.instance.call('enterClub', data: const {});
+    return refreshStatus(uid);
   }
 
   void clear(String uid) {

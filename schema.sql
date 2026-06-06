@@ -43,7 +43,10 @@ CREATE TYPE work_mode_type AS ENUM (
   'remote', 'in_office', 'hybrid', 'prefer_not_to_say'
 );
 CREATE TYPE marriage_timeline_type AS ENUM (
-  'within_1_year', '1_to_2_years', '2_to_3_years', 'exploring'
+  'within_6_months', 'within_1_year', '1_to_2_years', '2_to_3_years', 'exploring'
+);
+CREATE TYPE marital_status_type AS ENUM (
+  'never_married', 'divorced', 'widowed', 'separated'
 );
 CREATE TYPE family_involvement_type AS ENUM (
   'parents_leading', 'i_decide_they_know', 'private_for_now'
@@ -181,7 +184,8 @@ CREATE UNIQUE INDEX idx_idv_aadhaar_hash
 -- ============================================================
 --  3. PROFILES
 --  Everything the user fills in during onboarding + settings.
---  completeness_pct and is_live written by your Cloud Function.
+--  completeness_pct deprecated — trust score lives in trust_scores.score (0–200).
+--  is_live written by Cloud Function when all 21 required fields are filled.
 -- ============================================================
 
 CREATE TABLE profiles (
@@ -193,8 +197,13 @@ CREATE TABLE profiles (
   city                    TEXT,
   home_state              TEXT,
   height_cm               SMALLINT,
+  body_type               TEXT,
+  marital_status          marital_status_type,
+  has_children            TEXT,
 
   profession              TEXT,
+  field_of_work           TEXT,
+  employment_type         TEXT,
   company                 TEXT,
   education_level         TEXT,
   college                 TEXT,
@@ -202,8 +211,22 @@ CREATE TABLE profiles (
   work_mode               work_mode_type,
 
   faith                   faith_type,
+  religiosity             TEXT,
   community               TEXT,           -- freeform, never a dropdown
+  sub_caste               TEXT,
   mother_tongue           TEXT,
+  languages_spoken        TEXT[],
+  manglik_status          TEXT,
+  rashi                   TEXT,
+  nakshatra               TEXT,
+  gotra                   TEXT,
+  birth_time              TIME,
+  birth_place             TEXT,
+  living_arrangement_post_marriage TEXT,
+  father_occupation       TEXT,
+  mother_occupation       TEXT,
+  siblings                TEXT,
+  family_location         TEXT,
   grew_up_abroad          BOOLEAN DEFAULT FALSE,
   family_structure        family_type,
   horoscope_matters       BOOLEAN,
@@ -231,6 +254,7 @@ CREATE TABLE profiles (
   video_intro_url         TEXT,
 
   interests               TEXT[],
+  profile_extras          JSONB NOT NULL DEFAULT '{}',
 
   -- Written by Cloud Function on every profile update
   completeness_pct        SMALLINT NOT NULL DEFAULT 0,
@@ -315,11 +339,12 @@ CREATE INDEX idx_subs_period_end ON subscriptions(current_period_end);
 -- ============================================================
 --  6. TRUST SCORES
 --  One row per user. All fields written by your Cloud Function.
---  Your CF calls fn_recompute_trust(uid) after:
+--  Your CF calls refreshTrustScore(uid) after:
 --    - event attendance / no-show
 --    - new interaction (match/pass)
 --    - valid report filed against user
---    - profile completeness change
+--    - profile field save
+--  score = profile_points (max 150) + behavior_points (max 50) − reports × 25
 -- ============================================================
 
 CREATE TABLE trust_scores (
@@ -332,11 +357,13 @@ CREATE TABLE trust_scores (
   positive_feedback_count     SMALLINT NOT NULL DEFAULT 0,
   negative_feedback_count     SMALLINT NOT NULL DEFAULT 0,
   reports_received            SMALLINT NOT NULL DEFAULT 0,
-  profile_completeness_pct    SMALLINT NOT NULL DEFAULT 0,
+  profile_points              SMALLINT NOT NULL DEFAULT 0,
+  behavior_points             SMALLINT NOT NULL DEFAULT 0,
+  profile_completeness_pct    SMALLINT NOT NULL DEFAULT 0,  -- deprecated
   account_age_days            INTEGER  NOT NULL DEFAULT 0,
 
-  -- Written by CF after recompute
-  score                       SMALLINT NOT NULL DEFAULT 50,
+  -- Written by CF after recompute (0–200)
+  score                       SMALLINT NOT NULL DEFAULT 0,
   tier                        trust_tier_type NOT NULL DEFAULT 'trusted',
 
   is_banned                   BOOLEAN NOT NULL DEFAULT FALSE,
@@ -348,6 +375,38 @@ CREATE TABLE trust_scores (
 CREATE INDEX idx_trust_score  ON trust_scores(score DESC);
 CREATE INDEX idx_trust_tier   ON trust_scores(tier);
 CREATE INDEX idx_trust_banned ON trust_scores(is_banned) WHERE is_banned = TRUE;
+
+
+-- ============================================================
+--  6b. TRUST SCORE EVENTS (activity ledger / CRED-style feed)
+-- ============================================================
+
+CREATE TABLE trust_score_events (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  uid                 TEXT NOT NULL REFERENCES users(uid) ON DELETE CASCADE,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+  event_type          TEXT NOT NULL,
+  category            TEXT NOT NULL CHECK (category IN ('profile', 'behavior', 'penalty', 'system')),
+
+  title               TEXT NOT NULL,
+  body                TEXT,
+
+  delta_profile       SMALLINT NOT NULL DEFAULT 0,
+  delta_behavior      SMALLINT NOT NULL DEFAULT 0,
+  delta_total         SMALLINT NOT NULL DEFAULT 0,
+
+  profile_points_after   SMALLINT,
+  behavior_points_after  SMALLINT,
+  score_before           SMALLINT NOT NULL,
+  score_after            SMALLINT NOT NULL,
+  tier_after             trust_tier_type,
+
+  metadata            JSONB NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX idx_trust_events_uid_created
+  ON trust_score_events(uid, created_at DESC);
 
 
 -- ============================================================

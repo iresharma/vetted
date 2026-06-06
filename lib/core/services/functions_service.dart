@@ -1,8 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:vetted_club_mobile/core/config/app_check_bootstrap.dart';
 
 class FunctionsService {
   FunctionsService._();
@@ -52,12 +52,8 @@ class FunctionsService {
 
   /// Ensures Auth + App Check tokens exist before the first callable (helps after hot restart).
   Future<void> _warmUp() async {
-    try {
-      await FirebaseAppCheck.instance.getToken(false);
-    } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Functions warm-up: App Check token not ready ($e)');
-      }
+    if (useAppCheckDebugProviders) {
+      await primeAppCheckToken();
     }
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {

@@ -3,6 +3,7 @@ import 'package:vetted_club_mobile/core/theme/theme.dart';
 import 'package:vetted_club_mobile/core/widgets/atoms/vc_button.dart';
 import 'package:vetted_club_mobile/core/widgets/atoms/vc_logo_mark.dart';
 import 'package:vetted_club_mobile/core/widgets/atoms/vc_chip.dart';
+import 'package:vetted_club_mobile/core/widgets/molecules/vc_loading_indicator.dart';
 import 'package:vetted_club_mobile/features/auth/phone_auth_screen.dart';
 import 'package:vetted_club_mobile/features/onboarding/widgets/onboarding_illustrations.dart';
 
@@ -224,36 +225,7 @@ class _SplashViewState extends State<_SplashView>
               ),
             ),
             Center(
-              child: SizedBox(
-                width: 100,
-                height: 2,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(1),
-                  child: ColoredBox(
-                    color: AppColors.s2,
-                    child: AnimatedBuilder(
-                      animation: _shimmer,
-                      builder: (context, child) {
-                        return Transform.translate(
-                          offset: Offset(-100 + 200 * _shimmer.value, 0),
-                          child: Container(
-                            width: 100,
-                            decoration: const BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.transparent,
-                                  AppColors.violet,
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
+              child: VcLoadingShimmerBar(animation: _shimmer),
             ),
             const SizedBox(height: 72),
           ],

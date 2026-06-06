@@ -71,7 +71,7 @@ class _DesignSystemScreenState extends State<DesignSystemScreen> {
       ),
       bottomNavigationBar: VcBottomNav(
         current: _navTab,
-        hasMatchNotification: true,
+        hasChatNotification: true,
         onChanged: (tab) => setState(() => _navTab = tab),
       ),
     );

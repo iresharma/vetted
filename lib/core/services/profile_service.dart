@@ -1,26 +1,27 @@
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:vetted_club_mobile/core/services/functions_service.dart';
+import 'package:vetted_club_mobile/features/profile/data/models/profile_draft.dart';
 
-class ProfileDraft {
-  const ProfileDraft({
-    required this.verifiedName,
-    required this.verifiedAge,
-    required this.photoUrls,
+export 'package:vetted_club_mobile/features/profile/data/models/profile_draft.dart'
+    show ProfileDraft;
+
+class ProfileSaveResult {
+  const ProfileSaveResult({
+    required this.trustScore,
+    required this.trustTier,
+    required this.profilePoints,
+    required this.behaviorPoints,
+    required this.isLive,
+    this.photoUrls = const [],
   });
 
-  final String? verifiedName;
-  final int? verifiedAge;
+  final int trustScore;
+  final String trustTier;
+  final int profilePoints;
+  final int behaviorPoints;
+  final bool isLive;
   final List<String> photoUrls;
-
-  factory ProfileDraft.fromMap(Map<String, dynamic> map) {
-    final rawPhotos = map['photoUrls'];
-    return ProfileDraft(
-      verifiedName: map['verifiedName'] as String?,
-      verifiedAge: (map['verifiedAge'] as num?)?.toInt(),
-      photoUrls: rawPhotos is List
-          ? rawPhotos.whereType<String>().where((url) => url.isNotEmpty).toList()
-          : const [],
-    );
-  }
 }
 
 class ProfileService {
@@ -33,10 +34,33 @@ class ProfileService {
     return ProfileDraft.fromMap(response);
   }
 
-  Future<void> savePhotoUrls(List<String> photoUrls) async {
-    await FunctionsService.instance.call(
-      'saveProfileStep',
-      data: {'photo_urls': photoUrls},
-    );
+  Future<ProfileSaveResult> saveFields(Map<String, dynamic> payload) async {
+    try {
+      final response = await FunctionsService.instance.call(
+        'saveProfileStep',
+        data: payload,
+      );
+      final saved = response['photoUrls'];
+      return ProfileSaveResult(
+        trustScore: (response['trustScore'] as num?)?.toInt() ?? 0,
+        trustTier: (response['trustTier'] as String?) ?? 'trusted',
+        profilePoints: (response['profilePoints'] as num?)?.toInt() ?? 0,
+        behaviorPoints: (response['behaviorPoints'] as num?)?.toInt() ?? 0,
+        isLive: response['isLive'] == true,
+        photoUrls: saved is List
+            ? saved.whereType<String>().where((u) => u.isNotEmpty).toList()
+            : const [],
+      );
+    } on FirebaseFunctionsException catch (e) {
+      if (kDebugMode) {
+        debugPrint('saveProfileStep failed: ${e.code} ${e.message}');
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<String>> savePhotoUrls(List<String> photoUrls) async {
+    final result = await saveFields({'photo_urls': photoUrls});
+    return result.photoUrls.isNotEmpty ? result.photoUrls : photoUrls;
   }
 }

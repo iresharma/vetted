@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
 
-enum VcNavTab { home, discover, matches, profile }
+enum VcNavTab { home, chat, daily5, trust, profile }
 
 class VcBottomNav extends StatelessWidget {
   const VcBottomNav({
     super.key,
     required this.current,
     required this.onChanged,
-    this.hasMatchNotification = false,
+    this.hasChatNotification = false,
   });
 
   final VcNavTab current;
   final ValueChanged<VcNavTab> onChanged;
-  final bool hasMatchNotification;
+  final bool hasChatNotification;
 
   @override
   Widget build(BuildContext context) {
@@ -36,15 +36,22 @@ class VcBottomNav extends StatelessWidget {
                 onTap: () => onChanged(VcNavTab.home),
               ),
               _NavItem(
-                icon: Icons.diamond_outlined,
-                active: current == VcNavTab.discover,
-                onTap: () => onChanged(VcNavTab.discover),
+                icon: Icons.chat_bubble_outline_rounded,
+                active: current == VcNavTab.chat,
+                onTap: () => onChanged(VcNavTab.chat),
+                showNotification: hasChatNotification,
               ),
               _NavItem(
-                icon: Icons.favorite_border_rounded,
-                active: current == VcNavTab.matches,
-                onTap: () => onChanged(VcNavTab.matches),
-                showNotification: hasMatchNotification,
+                icon: Icons.diamond_outlined,
+                activeIcon: Icons.diamond_rounded,
+                iconSize: 24,
+                active: current == VcNavTab.daily5,
+                onTap: () => onChanged(VcNavTab.daily5),
+              ),
+              _NavItem(
+                icon: Icons.shield_outlined,
+                active: current == VcNavTab.trust,
+                onTap: () => onChanged(VcNavTab.trust),
               ),
               _NavItem(
                 icon: Icons.person_outline_rounded,
@@ -64,10 +71,14 @@ class _NavItem extends StatelessWidget {
     required this.icon,
     required this.active,
     required this.onTap,
+    this.activeIcon,
+    this.iconSize = 22,
     this.showNotification = false,
   });
 
   final IconData icon;
+  final IconData? activeIcon;
+  final double iconSize;
   final bool active;
   final VoidCallback onTap;
   final bool showNotification;
@@ -75,6 +86,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = active ? AppColors.violet : AppColors.textMuted;
+    final displayIcon = active ? (activeIcon ?? icon) : icon;
 
     return Expanded(
       child: GestureDetector(
@@ -86,7 +98,7 @@ class _NavItem extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(icon, size: 22, color: color),
+                Icon(displayIcon, size: iconSize, color: color),
                 if (showNotification)
                   Positioned(
                     top: -2,

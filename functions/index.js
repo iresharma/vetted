@@ -9,5 +9,7 @@ exports.savePreferencesStep = registration.savePreferencesStep;
 exports.markIdentityVerified = registration.markIdentityVerified;
 exports.getRegistrationStatus = registration.getRegistrationStatus;
 exports.getProfileDraft = registration.getProfileDraft;
+exports.enterClub = registration.enterClub;
+exports.getTrustReport = registration.getTrustReport;
 exports.createEntryPassCheckout = registration.createEntryPassCheckout;
 exports.confirmEntryPassPayment = registration.confirmEntryPassPayment;
