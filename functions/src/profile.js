@@ -86,14 +86,18 @@ const PROFILE_TEXT_ARRAY_COLUMNS = new Set([
 
 const PREFERENCE_TEXT_ARRAY_COLUMNS = new Set([
   "db_city",
-  "db_gender",
-  "db_faith",
-  "db_diet",
-  "db_drinking",
-  "db_smoking",
-  "db_family_structure",
-  "db_marriage_timeline",
 ]);
+
+/** Postgres enum[] columns on preferences — must not be cast as text[]. */
+const PREFERENCE_ENUM_ARRAY_COLUMNS = {
+  db_gender: "gender_type",
+  db_faith: "faith_type",
+  db_diet: "diet_type",
+  db_drinking: "drinking_type",
+  db_smoking: "smoking_type",
+  db_family_structure: "family_type",
+  db_marriage_timeline: "marriage_timeline_type",
+};
 
 function parseTextArray(value) {
   if (value == null) return [];
@@ -187,6 +191,7 @@ function buildDynamicUpdate({
   payload,
   touchUpdatedAt,
   textArrayColumns = new Set(),
+  enumArrayColumns = {},
   jsonbColumns = new Set(),
   timeColumns = new Set(),
   intColumns = new Set(),
@@ -198,7 +203,9 @@ function buildDynamicUpdate({
 
   keys.forEach((key, index) => {
     const placeholder = `$${index + 1}`;
-    if (textArrayColumns.has(key)) {
+    if (enumArrayColumns[key]) {
+      setFragments.push(`${key} = ${placeholder}::${enumArrayColumns[key]}[]`);
+    } else if (textArrayColumns.has(key)) {
       setFragments.push(`${key} = ${placeholder}::text[]`);
     } else if (jsonbColumns.has(key)) {
       setFragments.push(`${key} = ${placeholder}::jsonb`);
@@ -243,6 +250,7 @@ module.exports = {
   preferenceAllowedKeys,
   profileTextArrayColumns: PROFILE_TEXT_ARRAY_COLUMNS,
   preferenceTextArrayColumns: PREFERENCE_TEXT_ARRAY_COLUMNS,
+  preferenceEnumArrayColumns: PREFERENCE_ENUM_ARRAY_COLUMNS,
   profileBoolColumns: PROFILE_BOOL_COLUMNS,
   profileIntColumns: PROFILE_INT_COLUMNS,
   profileTimeColumns: PROFILE_TIME_COLUMNS,

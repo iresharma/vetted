@@ -51,14 +51,14 @@ class FunctionsService {
   }
 
   /// Ensures Auth + App Check tokens exist before the first callable (helps after hot restart).
-  Future<void> _warmUp() async {
+  Future<void> _warmUp({bool forceRefresh = false}) async {
     if (useAppCheckDebugProviders) {
-      await primeAppCheckToken();
+      await primeAppCheckToken(forceRefresh: forceRefresh);
     }
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        await user.getIdToken(false);
+        await user.getIdToken(forceRefresh);
       } catch (e) {
         if (kDebugMode) {
           debugPrint('Functions warm-up: Auth token not ready ($e)');
@@ -68,7 +68,9 @@ class FunctionsService {
   }
 
   static bool _isRetryable(FirebaseFunctionsException e) {
-    if (e.code == 'unavailable' || e.code == 'deadline-exceeded') {
+    if (e.code == 'unavailable' ||
+        e.code == 'deadline-exceeded' ||
+        e.code == 'unauthenticated') {
       return true;
     }
     if (e.code != 'unknown') return false;
@@ -87,14 +89,15 @@ class FunctionsService {
 
     Object? lastError;
     for (var attempt = 0; attempt < 3; attempt++) {
+      final forceRefresh = attempt > 0;
       if (attempt > 0) {
         final delayMs = 400 * attempt;
         if (kDebugMode) {
           debugPrint('Functions retry $attempt for $name in ${delayMs}ms');
         }
         await Future<void>.delayed(Duration(milliseconds: delayMs));
-        await _warmUp();
       }
+      await _warmUp(forceRefresh: forceRefresh);
 
       try {
         final callable = _functions.httpsCallable(

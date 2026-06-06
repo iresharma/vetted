@@ -30,6 +30,8 @@ class LocalCache {
   static String _trustReportKey(String uid, String? category) =>
       'trust_report:$uid:${category ?? 'all'}';
 
+  static String _valuesQuizStatusKey(String uid) => 'values_quiz_status:$uid';
+
   static ProfileDraft? readProfileDraft(String uid) =>
       _read(_profileDraftKey(uid), ProfileDraft.fromJson);
 
@@ -45,6 +47,11 @@ class LocalCache {
   ) =>
       _write(_registrationStatusKey(uid), status.toJson());
 
+  static String? readValuesQuizStatus(String uid) => _store.get(_valuesQuizStatusKey(uid));
+
+  static Future<void> writeValuesQuizStatus(String uid, String status) =>
+      _store.put(_valuesQuizStatusKey(uid), status);
+
   static TrustReport? readTrustReport(String uid, String? category) =>
       _read(_trustReportKey(uid, category), TrustReport.fromJson);
 
@@ -59,6 +66,7 @@ class LocalCache {
     final prefix = [
       'profile_draft:$uid',
       'registration_status:$uid',
+      'values_quiz_status:$uid',
       'trust_report:$uid:',
     ];
     final keys = _store.keys

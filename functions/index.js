@@ -1,5 +1,7 @@
 const admin = require("firebase-admin");
 const registration = require("./src/registration");
+const values = require("./src/values");
+const daily = require("./src/daily");
 
 admin.initializeApp();
 
@@ -13,3 +15,13 @@ exports.enterClub = registration.enterClub;
 exports.getTrustReport = registration.getTrustReport;
 exports.createEntryPassCheckout = registration.createEntryPassCheckout;
 exports.confirmEntryPassPayment = registration.confirmEntryPassPayment;
+
+exports.getValuesQuizStatus = values.getValuesQuizStatus;
+exports.submitValuesQuiz = values.submitValuesQuiz;
+exports.skipValuesQuiz = values.skipValuesQuiz;
+
+exports.getDailyQueue = daily.getDailyQueue;
+exports.markDailyQueueShown = daily.markDailyQueueShown;
+exports.recordDailyInteraction = daily.recordDailyInteraction;
+exports.generateDailyQueueScheduled = daily.generateDailyQueueScheduled;
+exports.learnWeightMapsScheduled = daily.learnWeightMapsScheduled;

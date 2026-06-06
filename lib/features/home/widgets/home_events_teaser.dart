@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
+import 'package:vetted_club_mobile/core/widgets/widgets.dart';
+import 'package:vetted_club_mobile/features/home/widgets/home_action_card.dart';
 
 /// Placeholder until IRL events ship — keeps Home layout ready for the real hero.
 class HomeEventsTeaser extends StatelessWidget {
@@ -15,44 +17,18 @@ class HomeEventsTeaser extends StatelessWidget {
         ? 'Curated meetups in $cityLabel are on the way.'
         : 'Curated in-person meetups are on the way.';
 
-    return ClipRRect(
-      borderRadius: AppRadius.r16,
-      child: Material(
-        color: AccentColor.coral.dim,
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    PhosphorIconsRegular.calendarStar,
-                    size: 18,
-                    color: AccentColor.coral.main,
-                  ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Text(
-                    'IRL events',
-                    style: AppTypography.labelCaps(color: AccentColor.coral.main),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'Coming soon',
-                    style: AppTypography.chip(color: AppColors.amber),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Meet members offline',
-                style: AppTypography.title().copyWith(fontSize: 16),
-              ),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(locationLine, style: AppTypography.supporting()),
-            ],
-          ),
-        ),
+    return HomeActionCard(
+      icon: PhosphorIconsRegular.calendarStar,
+      iconColor: AppColors.coral,
+      iconBackground: AppColors.coralDim,
+      label: 'IRL events',
+      labelColor: AppColors.coral,
+      title: 'Meet members offline',
+      subtitle: locationLine,
+      showChevron: false,
+      trailing: const VcTrustBadge(
+        label: 'Coming soon',
+        variant: VcTrustBadgeVariant.amber,
       ),
     );
   }

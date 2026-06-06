@@ -7,6 +7,9 @@ import 'package:vetted_club_mobile/core/widgets/widgets.dart';
 import 'package:vetted_club_mobile/features/home/widgets/home_shell_header.dart';
 import 'package:vetted_club_mobile/features/home/widgets/home_tab.dart';
 import 'package:vetted_club_mobile/features/home/widgets/member_profile_tab.dart';
+import 'package:vetted_club_mobile/features/daily/daily5_tab.dart';
+import 'package:vetted_club_mobile/features/home/providers/member_bootstrap_provider.dart';
+import 'package:vetted_club_mobile/features/values/providers/values_quiz_gate.dart';
 import 'package:vetted_club_mobile/features/trust/screens/trust_report_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -33,12 +36,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(memberBootstrapProvider);
+
+    final hideHeaderForQuiz =
+        _navTab == VcNavTab.daily5 && valuesQuizPending(ref);
+    final showDailyHeader = !hideHeaderForQuiz;
+
     return Scaffold(
       backgroundColor: AppColors.bg,
       body: Column(
         children: [
           const VcStatusBar(),
-          HomeShellHeader(tab: _navTab, user: widget.user),
+          if (showDailyHeader)
+            HomeShellHeader(tab: _navTab, user: widget.user),
           Expanded(child: _buildTabContent()),
         ],
       ),
@@ -55,7 +65,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       children: [
         HomeTab(onNavigate: (tab) => setState(() => _navTab = tab)),
         const _ChatEmptyTab(),
-        const _Daily5Tab(),
+        Daily5Tab(
+          user: widget.user,
+          isActive: _navTab == VcNavTab.daily5,
+          onNavigate: (tab) => setState(() => _navTab = tab),
+        ),
         TrustReportScreen(user: widget.user),
         MemberProfileTab(
           user: widget.user,
@@ -78,47 +92,6 @@ class _ChatEmptyTab extends StatelessWidget {
       message:
           'When you and someone both show interest, the conversation starts here. '
           'Keep your profile sharp, show up on Daily 5, and your next match could land any day.',
-    );
-  }
-}
-
-class _Daily5Tab extends StatelessWidget {
-  const _Daily5Tab();
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.screenHorizontal,
-        AppSpacing.md,
-        AppSpacing.screenHorizontal,
-        AppSpacing.xxxl,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          VcNeoPopCard(
-            accent: AccentColor.violet,
-            onTap: () {},
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Daily 5', style: AppTypography.labelCaps()),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Your picks arrive each morning.',
-                  style: AppTypography.title().copyWith(fontSize: 13),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Text(
-                  'Coming soon',
-                  style: AppTypography.chip(color: AppColors.amber),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

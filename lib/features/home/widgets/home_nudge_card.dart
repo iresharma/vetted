@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
+import 'package:vetted_club_mobile/features/home/widgets/home_action_card.dart';
 
 enum HomeNudgeKind { verifyIdentity, completeProfile }
 
@@ -29,42 +30,13 @@ class HomeNudgeCard extends StatelessWidget {
         ),
     };
 
-    return ClipRRect(
-      borderRadius: AppRadius.r16,
-      child: Material(
-        color: AppColors.amberDim,
-        child: InkWell(
-          onTap: onTap,
-          splashColor: AppColors.amber.withValues(alpha: 0.08),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            child: Row(
-              children: [
-                Icon(icon, size: 22, color: AppColors.amber),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: AppTypography.title().copyWith(fontSize: 15),
-                      ),
-                      const SizedBox(height: AppSpacing.xxs),
-                      Text(body, style: AppTypography.supporting()),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  PhosphorIconsRegular.caretRight,
-                  size: 16,
-                  color: AppColors.textSecondary,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+    return HomeActionCard(
+      icon: icon,
+      iconColor: AppColors.amber,
+      iconBackground: AppColors.amberDim,
+      title: title,
+      subtitle: body,
+      onTap: onTap,
     );
   }
 }
