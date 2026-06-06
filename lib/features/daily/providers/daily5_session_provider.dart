@@ -5,6 +5,7 @@ import 'package:vetted_club_mobile/core/services/daily_service.dart';
 import 'package:vetted_club_mobile/core/services/registration_service.dart';
 import 'package:vetted_club_mobile/core/services/values_service.dart';
 import 'package:vetted_club_mobile/features/profile/providers/profile_providers.dart';
+import 'package:vetted_club_mobile/features/values/providers/values_quiz_gate.dart';
 import 'package:vetted_club_mobile/features/values/providers/values_quiz_status_notifier.dart';
 
 class Daily5Session {
@@ -30,24 +31,7 @@ class Daily5SessionNotifier extends AsyncNotifier<Daily5Session?> {
   @override
   Future<Daily5Session?> build() async => null;
 
-  bool _isQuizPending() {
-    final session = state.value;
-    if (session?.needsQuiz == true) return true;
-
-    final regStatus = ref.read(registrationStatusProvider).value?.valuesQuizStatus;
-    if (regStatus == null || regStatus == 'pending') return true;
-
-    final quizStatus = ref.read(valuesQuizStatusProvider).value;
-    if (quizStatus?.isPending == true) return true;
-
-    final uid = ref.read(authUidProvider);
-    if (uid != null) {
-      final cached = LocalCache.readValuesQuizStatus(uid);
-      if (cached == null || cached == 'pending') return true;
-    }
-
-    return false;
-  }
+  bool _isQuizPending() => valuesQuizPendingFromRead(ref);
 
   ValuesQuizStatus? _resolvedQuizStatus() {
     return ref.read(valuesQuizStatusProvider).value ??
@@ -59,15 +43,15 @@ class Daily5SessionNotifier extends AsyncNotifier<Daily5Session?> {
   }
 
   /// Loads quiz status + queue (when quiz is done) for the Daily 5 tab.
-  Future<void> activate() async {
+  Future<void> activate({bool force = false}) async {
     if (_activating) return;
 
     final existing = state.value;
-    if (existing != null && !state.hasError) {
-      if (existing.needsQuiz || existing.queue != null) return;
+    if (!force && existing != null && !state.hasError) {
+      if (existing.queue != null) return;
+      if (existing.needsQuiz && _isQuizPending()) return;
     }
 
-    // Instant quiz — no spinner, no network wait.
     if (_isQuizPending()) {
       state = AsyncData(
         Daily5Session(needsQuiz: true, quizStatus: _resolvedQuizStatus()),
@@ -95,7 +79,7 @@ class Daily5SessionNotifier extends AsyncNotifier<Daily5Session?> {
         state = AsyncData(
           Daily5Session(needsQuiz: true, quizStatus: _resolvedQuizStatus()),
         );
-      } else if (existing != null) {
+      } else if (existing != null && existing.queue != null) {
         state = AsyncData(existing);
       } else {
         state = AsyncError(error, stackTrace);
@@ -109,8 +93,14 @@ class Daily5SessionNotifier extends AsyncNotifier<Daily5Session?> {
     Future(() async {
       try {
         await ref.read(valuesQuizStatusProvider.notifier).refresh();
+        final uid = ref.read(authUidProvider);
+        final remote = ref.read(valuesQuizStatusProvider).value;
+        if (uid != null && remote != null) {
+          await LocalCache.writeValuesQuizStatus(uid, remote.status);
+          _syncRegistrationQuizStatus(remote.status);
+        }
         if (!_isQuizPending() && ref.mounted) {
-          await activate();
+          await activate(force: true);
         }
       } catch (_) {}
     });

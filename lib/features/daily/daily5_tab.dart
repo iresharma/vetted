@@ -8,7 +8,9 @@ import 'package:vetted_club_mobile/features/daily/providers/daily5_session_provi
 import 'package:vetted_club_mobile/features/daily/widgets/daily5_countdown.dart';
 import 'package:vetted_club_mobile/features/daily/widgets/daily5_pass_reason_sheet.dart';
 import 'package:vetted_club_mobile/features/daily/widgets/daily5_profile_card.dart';
+import 'package:vetted_club_mobile/features/profile/providers/profile_providers.dart';
 import 'package:vetted_club_mobile/features/values/providers/values_quiz_gate.dart';
+import 'package:vetted_club_mobile/features/values/providers/values_quiz_status_notifier.dart';
 import 'package:vetted_club_mobile/features/values/values_quiz_screen.dart';
 
 class Daily5Tab extends ConsumerStatefulWidget {
@@ -145,6 +147,23 @@ class _Daily5TabState extends ConsumerState<Daily5Tab> {
     if (!widget.isActive) {
       return const SizedBox.shrink();
     }
+
+    ref.listen(valuesQuizStatusProvider, (previous, next) {
+      final prevPending = previous?.value?.isPending ?? true;
+      final nextComplete = next.value?.isComplete ?? false;
+      if (prevPending && nextComplete) {
+        ref.read(daily5SessionProvider.notifier).activate(force: true);
+      }
+    });
+
+    ref.listen(registrationStatusProvider, (previous, next) {
+      final prevPending = previous?.value?.valuesQuizStatus == 'pending' ||
+          previous?.value?.valuesQuizStatus == null;
+      final nextStatus = next.value?.valuesQuizStatus;
+      if (prevPending && nextStatus != null && nextStatus != 'pending') {
+        ref.read(daily5SessionProvider.notifier).activate(force: true);
+      }
+    });
 
     final sessionAsync = ref.watch(daily5SessionProvider);
 

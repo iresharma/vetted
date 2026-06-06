@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vetted_club_mobile/core/cache/local_cache.dart';
 import 'package:vetted_club_mobile/core/providers/auth_providers.dart';
+import 'package:vetted_club_mobile/core/services/registration_service.dart';
 import 'package:vetted_club_mobile/core/services/values_service.dart';
 import 'package:vetted_club_mobile/features/profile/providers/profile_providers.dart';
 
@@ -19,14 +20,20 @@ class ValuesQuizStatusNotifier extends AsyncNotifier<ValuesQuizStatus?> {
       if (previous != next) ref.invalidateSelf();
     });
 
+    final cached = _readCached(uid);
+    if (cached != null && cached.isComplete) {
+      _syncInBackground(uid);
+      return cached;
+    }
+
     final regStatus = ref.watch(registrationStatusProvider).value?.valuesQuizStatus;
-    if (regStatus != null) {
+    if (regStatus != null && regStatus != 'pending') {
       final fromReg = ValuesQuizStatus(status: regStatus);
+      await _persist(uid, fromReg);
       _syncInBackground(uid);
       return fromReg;
     }
 
-    final cached = _readCached(uid);
     if (cached != null) {
       _syncInBackground(uid);
       return cached;
@@ -50,16 +57,32 @@ class ValuesQuizStatusNotifier extends AsyncNotifier<ValuesQuizStatus?> {
       try {
         final remote = await ValuesService.instance.getQuizStatus();
         await _persist(uid, remote);
-        if (ref.mounted) state = AsyncData(remote);
+        if (ref.mounted) {
+          state = AsyncData(remote);
+          if (!remote.isPending) {
+            _syncRegistration(remote.status);
+          }
+        }
       } catch (_) {
         // Keep cached value.
       }
     });
   }
 
+  void _syncRegistration(String status) {
+    final current = ref.read(registrationStatusProvider).value;
+    if (current == null || current.valuesQuizStatus == status) return;
+    ref.read(registrationStatusProvider.notifier).cache(
+          current.copyWithValuesQuizStatus(status),
+        );
+  }
+
   Future<ValuesQuizStatus> _fetchRemote(String uid) async {
     final remote = await ValuesService.instance.getQuizStatus();
     await _persist(uid, remote);
+    if (!remote.isPending) {
+      _syncRegistration(remote.status);
+    }
     return remote;
   }
 
@@ -76,6 +99,9 @@ class ValuesQuizStatusNotifier extends AsyncNotifier<ValuesQuizStatus?> {
       final remote = await ValuesService.instance.getQuizStatus();
       await _persist(uid, remote);
       state = AsyncData(remote);
+      if (!remote.isPending) {
+        _syncRegistration(remote.status);
+      }
       return remote;
     } catch (error, stackTrace) {
       if (previous != null) {
@@ -93,5 +119,24 @@ class ValuesQuizStatusNotifier extends AsyncNotifier<ValuesQuizStatus?> {
     final next = ValuesQuizStatus(status: status);
     state = AsyncData(next);
     _persist(uid, next);
+    _syncRegistration(status);
+  }
+}
+
+extension on RegistrationStatus {
+  RegistrationStatus copyWithValuesQuizStatus(String status) {
+    return RegistrationStatus(
+      exists: exists,
+      hasPaidEntryPass: hasPaidEntryPass,
+      hasActiveSubscription: hasActiveSubscription,
+      isIdentityVerified: isIdentityVerified,
+      isRegistrationComplete: isRegistrationComplete,
+      isProfileComplete: isProfileComplete,
+      trustScore: trustScore,
+      trustTier: trustTier,
+      profilePoints: profilePoints,
+      behaviorPoints: behaviorPoints,
+      valuesQuizStatus: status,
+    );
   }
 }

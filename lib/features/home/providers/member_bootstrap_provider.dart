@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vetted_club_mobile/core/providers/auth_providers.dart';
 import 'package:vetted_club_mobile/features/daily/providers/daily5_session_provider.dart';
 import 'package:vetted_club_mobile/features/profile/providers/profile_draft_notifier.dart';
+import 'package:vetted_club_mobile/features/profile/providers/profile_providers.dart';
 import 'package:vetted_club_mobile/features/trust/providers/trust_report_provider.dart';
 import 'package:vetted_club_mobile/features/values/providers/values_quiz_gate.dart';
 import 'package:vetted_club_mobile/features/values/providers/values_quiz_status_notifier.dart';
@@ -16,10 +17,9 @@ final memberBootstrapProvider = FutureProvider<void>((ref) async {
   await Future.wait([
     ref.read(profileDraftProvider.future),
     ref.read(trustReportProvider(null).future),
+    ref.read(registrationStatusProvider.notifier).refresh(uid),
+    ref.read(valuesQuizStatusProvider.future),
   ]);
-
-  // Seed quiz status from registration cache — sync remote without blocking shell load.
-  unawaited(ref.read(valuesQuizStatusProvider.future));
 
   if (!valuesQuizPendingFromRead(ref)) {
     unawaited(ref.read(daily5SessionProvider.notifier).activate());

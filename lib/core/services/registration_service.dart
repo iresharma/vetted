@@ -100,6 +100,7 @@ class RegistrationStatus {
       trustTier: (json['trustTier'] as String?) ?? 'trusted',
       profilePoints: (json['profilePoints'] as num?)?.toInt() ?? 0,
       behaviorPoints: (json['behaviorPoints'] as num?)?.toInt() ?? 0,
+      valuesQuizStatus: (json['valuesQuizStatus'] as String?) ?? 'pending',
     );
   }
 }

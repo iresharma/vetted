@@ -1,45 +1,48 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vetted_club_mobile/core/cache/local_cache.dart';
 import 'package:vetted_club_mobile/core/providers/auth_providers.dart';
-import 'package:vetted_club_mobile/features/daily/providers/daily5_session_provider.dart';
+import 'package:vetted_club_mobile/core/services/values_service.dart';
 import 'package:vetted_club_mobile/features/profile/providers/profile_providers.dart';
 import 'package:vetted_club_mobile/features/values/providers/values_quiz_status_notifier.dart';
 
-/// Whether the member still needs to complete (or skip) the values quiz.
-bool valuesQuizPending(WidgetRef ref) {
-  final session = ref.watch(daily5SessionProvider).value;
-  if (session?.needsQuiz == true) return true;
+/// Returns true only when the member still needs to take or skip the values quiz.
+bool isValuesQuizPending({
+  ValuesQuizStatus? quizStatus,
+  String? registrationValuesQuizStatus,
+  String? cachedValuesQuizStatus,
+}) {
+  if (quizStatus != null) return quizStatus.isPending;
 
-  final regStatus = ref.watch(registrationStatusProvider).value?.valuesQuizStatus;
-  if (regStatus == null || regStatus == 'pending') return true;
-
-  final quizStatus = ref.watch(valuesQuizStatusProvider).value;
-  if (quizStatus?.isPending == true) return true;
-
-  final uid = ref.watch(authUidProvider);
-  if (uid != null) {
-    final cached = LocalCache.readValuesQuizStatus(uid);
-    if (cached == null || cached == 'pending') return true;
+  if (cachedValuesQuizStatus != null) {
+    return cachedValuesQuizStatus == 'pending';
   }
 
-  return false;
+  if (registrationValuesQuizStatus != null) {
+    return registrationValuesQuizStatus == 'pending';
+  }
+
+  // No local signal yet — assume pending until remote sync (new members).
+  return true;
+}
+
+bool valuesQuizPending(WidgetRef ref) {
+  final uid = ref.watch(authUidProvider);
+  return isValuesQuizPending(
+    quizStatus: ref.watch(valuesQuizStatusProvider).value,
+    registrationValuesQuizStatus:
+        ref.watch(registrationStatusProvider).value?.valuesQuizStatus,
+    cachedValuesQuizStatus:
+        uid != null ? LocalCache.readValuesQuizStatus(uid) : null,
+  );
 }
 
 bool valuesQuizPendingFromRead(Ref ref) {
-  final session = ref.read(daily5SessionProvider).value;
-  if (session?.needsQuiz == true) return true;
-
-  final regStatus = ref.read(registrationStatusProvider).value?.valuesQuizStatus;
-  if (regStatus == null || regStatus == 'pending') return true;
-
-  final quizStatus = ref.read(valuesQuizStatusProvider).value;
-  if (quizStatus?.isPending == true) return true;
-
   final uid = ref.read(authUidProvider);
-  if (uid != null) {
-    final cached = LocalCache.readValuesQuizStatus(uid);
-    if (cached == null || cached == 'pending') return true;
-  }
-
-  return false;
+  return isValuesQuizPending(
+    quizStatus: ref.read(valuesQuizStatusProvider).value,
+    registrationValuesQuizStatus:
+        ref.read(registrationStatusProvider).value?.valuesQuizStatus,
+    cachedValuesQuizStatus:
+        uid != null ? LocalCache.readValuesQuizStatus(uid) : null,
+  );
 }
