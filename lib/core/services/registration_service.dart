@@ -28,6 +28,7 @@ class RegistrationStatus {
     this.trustTier = 'trusted',
     this.profilePoints = 0,
     this.behaviorPoints = 0,
+    this.valuesQuizStatus = 'pending',
   });
 
   final bool exists;
@@ -40,6 +41,7 @@ class RegistrationStatus {
   final String trustTier;
   final int profilePoints;
   final int behaviorPoints;
+  final String valuesQuizStatus;
 
   /// Paid entry pass and/or an active Razorpay subscription row.
   bool get hasMembership => hasPaidEntryPass || hasActiveSubscription;
@@ -68,6 +70,7 @@ class RegistrationStatus {
       trustTier: (map['trustTier'] as String?) ?? 'trusted',
       profilePoints: asInt('profilePoints'),
       behaviorPoints: asInt('behaviorPoints'),
+      valuesQuizStatus: (map['valuesQuizStatus'] as String?) ?? 'pending',
     );
   }
 
@@ -82,6 +85,7 @@ class RegistrationStatus {
         'trustTier': trustTier,
         'profilePoints': profilePoints,
         'behaviorPoints': behaviorPoints,
+        'valuesQuizStatus': valuesQuizStatus,
       };
 
   factory RegistrationStatus.fromJson(Map<String, dynamic> json) {
@@ -96,6 +100,7 @@ class RegistrationStatus {
       trustTier: (json['trustTier'] as String?) ?? 'trusted',
       profilePoints: (json['profilePoints'] as num?)?.toInt() ?? 0,
       behaviorPoints: (json['behaviorPoints'] as num?)?.toInt() ?? 0,
+      valuesQuizStatus: (json['valuesQuizStatus'] as String?) ?? 'pending',
     );
   }
 }

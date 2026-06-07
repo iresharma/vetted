@@ -1,0 +1,115 @@
+{
+  "defaults": [
+    {
+      "faith": null,
+      "mother_tongue": null,
+      "weight_map": {
+        "version": 1,
+        "fields": {
+          "marriage_timeline": { "mode": "soft", "weight": 0.85, "cluster": "life_stage" },
+          "family_involvement": { "mode": "soft", "weight": 0.75, "cluster": "family" },
+          "diet": { "mode": "soft", "weight": 0.7, "cluster": "lifestyle" },
+          "city": { "mode": "soft", "weight": 0.65, "cluster": "geography" },
+          "faith": { "mode": "soft", "weight": 0.6, "cluster": "dealbreakers" },
+          "drinking": { "mode": "soft", "weight": 0.55, "cluster": "lifestyle" },
+          "smoking": { "mode": "soft", "weight": 0.55, "cluster": "lifestyle" },
+          "wants_children": { "mode": "soft", "weight": 0.7, "cluster": "family" },
+          "education_level": { "mode": "soft", "weight": 0.5, "cluster": "life_stage" },
+          "field_of_work": { "mode": "soft", "weight": 0.45, "cluster": "life_stage" },
+          "weekend_vibe": { "mode": "soft", "weight": 0.4, "cluster": "lifestyle" },
+          "willing_to_relocate": { "mode": "soft", "weight": 0.5, "cluster": "geography" }
+        }
+      }
+    },
+    {
+      "faith": "hindu",
+      "mother_tongue": null,
+      "weight_map": {
+        "version": 1,
+        "fields": {
+          "marriage_timeline": { "mode": "soft", "weight": 0.8, "cluster": "life_stage" },
+          "family_involvement": { "mode": "soft", "weight": 0.85, "cluster": "family" },
+          "faith": { "mode": "soft", "weight": 0.7, "cluster": "dealbreakers" },
+          "diet": { "mode": "soft", "weight": 0.75, "cluster": "lifestyle" },
+          "city": { "mode": "soft", "weight": 0.55, "cluster": "geography" }
+        }
+      }
+    },
+    {
+      "faith": "hindu",
+      "mother_tongue": "Hindi",
+      "weight_map": {
+        "version": 1,
+        "fields": {
+          "marriage_timeline": { "mode": "soft", "weight": 0.82, "cluster": "life_stage" },
+          "family_involvement": { "mode": "soft", "weight": 0.88, "cluster": "family" },
+          "faith": { "mode": "soft", "weight": 0.72, "cluster": "dealbreakers" },
+          "diet": { "mode": "soft", "weight": 0.78, "cluster": "lifestyle" },
+          "mother_tongue": { "mode": "soft", "weight": 0.6, "cluster": "dealbreakers" }
+        }
+      }
+    },
+    {
+      "faith": "hindu",
+      "mother_tongue": "Tamil",
+      "weight_map": {
+        "version": 1,
+        "fields": {
+          "marriage_timeline": { "mode": "soft", "weight": 0.8, "cluster": "life_stage" },
+          "family_involvement": { "mode": "soft", "weight": 0.9, "cluster": "family" },
+          "faith": { "mode": "soft", "weight": 0.75, "cluster": "dealbreakers" },
+          "diet": { "mode": "soft", "weight": 0.8, "cluster": "lifestyle" }
+        }
+      }
+    },
+    {
+      "faith": "muslim",
+      "mother_tongue": null,
+      "weight_map": {
+        "version": 1,
+        "fields": {
+          "faith": { "mode": "soft", "weight": 0.85, "cluster": "dealbreakers" },
+          "diet": { "mode": "soft", "weight": 0.8, "cluster": "lifestyle" },
+          "drinking": { "mode": "soft", "weight": 0.85, "cluster": "lifestyle" },
+          "family_involvement": { "mode": "soft", "weight": 0.8, "cluster": "family" }
+        }
+      }
+    },
+    {
+      "faith": "muslim",
+      "mother_tongue": "Urdu",
+      "weight_map": {
+        "version": 1,
+        "fields": {
+          "faith": { "mode": "soft", "weight": 0.9, "cluster": "dealbreakers" },
+          "diet": { "mode": "soft", "weight": 0.85, "cluster": "lifestyle" },
+          "family_involvement": { "mode": "soft", "weight": 0.85, "cluster": "family" }
+        }
+      }
+    },
+    {
+      "faith": "sikh",
+      "mother_tongue": "Punjabi",
+      "weight_map": {
+        "version": 1,
+        "fields": {
+          "faith": { "mode": "soft", "weight": 0.8, "cluster": "dealbreakers" },
+          "family_involvement": { "mode": "soft", "weight": 0.85, "cluster": "family" },
+          "diet": { "mode": "soft", "weight": 0.7, "cluster": "lifestyle" }
+        }
+      }
+    },
+    {
+      "faith": "christian",
+      "mother_tongue": null,
+      "weight_map": {
+        "version": 1,
+        "fields": {
+          "faith": { "mode": "soft", "weight": 0.75, "cluster": "dealbreakers" },
+          "marriage_timeline": { "mode": "soft", "weight": 0.8, "cluster": "life_stage" },
+          "partner_search_approach": { "mode": "soft", "weight": 0.65, "cluster": "life_stage" }
+        }
+      }
+    }
+  ]
+}

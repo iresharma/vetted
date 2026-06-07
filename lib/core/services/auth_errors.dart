@@ -9,6 +9,11 @@ abstract final class AuthErrors {
   static const verificationFailed =
       "We couldn't send a verification code. Please try again in a moment.";
 
+  static const appCheckDebugHint =
+      'Simulator/dev: register the App Check debug token printed at app '
+      'startup in Firebase Console → App Check → your iOS app → '
+      'Manage debug tokens, then fully restart the app (not hot restart).';
+
   static const devPhoneHint =
       'Simulator/dev: add +91XXXXXXXXXX and a test code (e.g. 123456) in '
       'Firebase Console → Authentication → Sign-in method → Phone → '
@@ -42,6 +47,14 @@ abstract final class AuthErrors {
         msg.contains('unsupported-region') ||
         msg.contains('sms unable to be sent')) {
       return unsupportedRegion;
+    }
+    if (e.code == 'missing-client-identifier' ||
+        msg.contains('missing-client-identifier') ||
+        msg.contains('client identifier')) {
+      return kDebugMode
+          ? 'Phone verification needs a registered App Check debug token on '
+              'this simulator.\n$appCheckDebugHint\n$devPhoneHint'
+          : verificationFailed;
     }
     if (e.code == 'internal-error' || msg.contains('internal error')) {
       return kDebugMode ? '$verificationFailed\n$devPhoneHint' : verificationFailed;

@@ -58,14 +58,14 @@ class ProfileTrustBreakdownScreen extends ConsumerWidget {
                             ...section.missingItems.map(
                               (item) => Padding(
                                 padding: const EdgeInsets.only(
-                                  bottom: AppSpacing.sm,
+                                  bottom: HomeBentoStyle.gap,
                                 ),
                                 child: _MissingFieldTile(item: item),
                               ),
                             ),
                           ] else
-                            VcSoftCard(
-                              padding: const EdgeInsets.all(AppSpacing.md),
+                            VcBentoCard(
+                              accent: AccentColor.mint,
                               child: Text(
                                 'All fields in this section are complete.',
                                 style: AppTypography.supporting(
@@ -215,36 +215,25 @@ class _MissingFieldTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return VcSoftCard(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm + 2,
-      ),
+    return VcBentoCard(
+      accent: AccentColor.amber,
       child: Row(
         children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: AppColors.amberDim,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              PhosphorIconsRegular.plus,
-              size: 16,
-              color: AppColors.amber,
-            ),
+          Icon(
+            PhosphorIconsRegular.plus,
+            size: 22,
+            color: AppColors.amber,
           ),
-          const SizedBox(width: AppSpacing.sm),
+          const SizedBox(width: AppSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   item.label,
-                  style: AppTypography.body().copyWith(fontWeight: FontWeight.w600),
+                  style: AppTypography.title().copyWith(fontSize: 15),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
                   'Missing · +${formatTrustPoints(item.pointsPossible)} pts',
                   style: AppTypography.supporting(color: AppColors.amber),

@@ -8,6 +8,7 @@ const {
   preferenceAllowedKeys,
   profileTextArrayColumns,
   preferenceTextArrayColumns,
+  preferenceEnumArrayColumns,
   profileBoolColumns,
   profileIntColumns,
   profileTimeColumns,
@@ -186,6 +187,10 @@ exports.upsertUserFromAuth = onCall(callableDefaults, async (request) => {
       );
       await client.query(`INSERT INTO profiles(uid) VALUES ($1) ON CONFLICT(uid) DO NOTHING`, [uid]);
       await client.query(`INSERT INTO preferences(uid) VALUES ($1) ON CONFLICT(uid) DO NOTHING`, [uid]);
+      await client.query(
+        `INSERT INTO user_weight_maps(uid, status) VALUES ($1, 'pending') ON CONFLICT(uid) DO NOTHING`,
+        [uid]
+      );
       await ensureTrustScoreRow(uid, client);
     });
     return { ok: true, uid };
@@ -277,6 +282,7 @@ exports.savePreferencesStep = onCall(callableDefaults, async (request) => {
     payload,
     touchUpdatedAt: true,
     textArrayColumns: preferenceTextArrayColumns,
+    enumArrayColumns: preferenceEnumArrayColumns,
   });
   try {
     const result = await query(sql, values);
@@ -528,6 +534,7 @@ exports.getRegistrationStatus = onCall(callableDefaults, async (request) => {
          u.is_identity_verified,
          u.account_status,
          COALESCE(p.is_live, FALSE) AS is_profile_live,
+         COALESCE(wm.status::text, 'pending') AS values_quiz_status,
          EXISTS (
            SELECT 1
            FROM subscriptions s
@@ -537,6 +544,7 @@ exports.getRegistrationStatus = onCall(callableDefaults, async (request) => {
          ) AS has_active_subscription
        FROM users u
        LEFT JOIN profiles p ON p.uid = u.uid
+       LEFT JOIN user_weight_maps wm ON wm.uid = u.uid
        WHERE u.uid = $1`,
       [uid]
     );
@@ -578,6 +586,7 @@ exports.getRegistrationStatus = onCall(callableDefaults, async (request) => {
       behaviorPoints,
       isProfileComplete,
       isRegistrationComplete,
+      valuesQuizStatus: row.values_quiz_status || "pending",
     };
   } catch (error) {
     throw mapDbError(error);
@@ -686,3 +695,5 @@ exports.getTrustReport = onCall(callableDefaults, async (request) => {
     throw mapDbError(error);
   }
 });
+
+exports.refreshTrustScore = refreshTrustScore;

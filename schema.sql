@@ -77,6 +77,16 @@ CREATE TYPE report_reason_type AS ENUM (
   'fake_profile', 'inappropriate_behaviour',
   'harassment', 'spam', 'other'
 );
+CREATE TYPE pass_reason_type AS ENUM (
+  'different_timeline',
+  'lifestyle_mismatch',
+  'family_values',
+  'location',
+  'not_my_type',
+  'other'
+);
+CREATE TYPE weight_map_status_type AS ENUM ('pending', 'completed', 'skipped');
+CREATE TYPE weight_map_source_type AS ENUM ('quiz', 'community_default', 'learned');
 CREATE TYPE account_status_type AS ENUM (
   'pending_verification', 'active', 'suspended', 'deleted'
 );
@@ -309,6 +319,32 @@ CREATE TABLE preferences (
 
 
 -- ============================================================
+--  4b. USER WEIGHT MAPS (values discovery quiz + learning)
+-- ============================================================
+
+CREATE TABLE user_weight_maps (
+  uid             TEXT PRIMARY KEY REFERENCES users(uid) ON DELETE CASCADE,
+  status          weight_map_status_type NOT NULL DEFAULT 'pending',
+  source          weight_map_source_type,
+  weight_map      JSONB NOT NULL DEFAULT '{}',
+  quiz_answers    JSONB NOT NULL DEFAULT '{}',
+  learning_log    JSONB NOT NULL DEFAULT '[]',
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_weight_maps_status ON user_weight_maps(status);
+
+CREATE TABLE community_weight_defaults (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  faith           faith_type,
+  mother_tongue   TEXT,
+  weight_map      JSONB NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE NULLS NOT DISTINCT (faith, mother_tongue)
+);
+
+
+-- ============================================================
 --  5. SUBSCRIPTIONS
 --  Your Cloud Function writes a new row on each Razorpay
 --  subscription webhook. Check active status by querying
@@ -426,6 +462,8 @@ CREATE TABLE interactions (
   is_mutual       BOOLEAN NOT NULL DEFAULT FALSE,
   matched_at      TIMESTAMPTZ,
   source          TEXT,   -- 'daily_queue' | 'pre_event' | 'direct'
+  pass_reason     pass_reason_type,
+  pass_reason_field TEXT,
 
   UNIQUE (actor_uid, target_uid)
 );
@@ -454,6 +492,8 @@ CREATE TABLE daily_queue (
   position              SMALLINT NOT NULL CHECK (position BETWEEN 1 AND 5),
   compatibility_score   SMALLINT NOT NULL,
   score_breakdown       JSONB,           -- {"education":18,"lifestyle":14,...}
+  match_reason_field    TEXT,
+  match_reason_label    TEXT,
   was_shown             BOOLEAN NOT NULL DEFAULT FALSE,
   shown_at              TIMESTAMPTZ,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -660,6 +700,8 @@ ALTER TABLE users                  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE identity_verifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE profiles               ENABLE ROW LEVEL SECURITY;
 ALTER TABLE preferences            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_weight_maps       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE community_weight_defaults ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE trust_scores           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE interactions           ENABLE ROW LEVEL SECURITY;
@@ -713,6 +755,8 @@ CREATE POLICY p_profiles_others
 
 -- simple own-row policies
 CREATE POLICY p_prefs_self      ON preferences       USING (uid = current_uid());
+CREATE POLICY p_weight_maps_self ON user_weight_maps USING (uid = current_uid());
+CREATE POLICY p_community_defaults_read ON community_weight_defaults FOR SELECT USING (TRUE);
 CREATE POLICY p_subs_self       ON subscriptions     USING (uid = current_uid());
 CREATE POLICY p_trust_self      ON trust_scores      USING (uid = current_uid());
 CREATE POLICY p_queue_self      ON daily_queue       USING (uid = current_uid());

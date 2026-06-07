@@ -11,6 +11,7 @@ export 'molecules/vc_flow_step_row.dart';
 export 'molecules/vc_onboarding_dots.dart';
 export 'molecules/vc_otp_input.dart';
 export 'molecules/vc_progress_pips.dart';
+export 'molecules/vc_bento_card.dart';
 export 'molecules/vc_soft_card.dart';
 export 'molecules/vc_text_input.dart';
 export 'molecules/vc_xp_bar.dart';

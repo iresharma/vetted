@@ -3,8 +3,9 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:vetted_club_mobile/core/domain/trust_tier.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
 import 'package:vetted_club_mobile/core/widgets/widgets.dart';
+import 'package:vetted_club_mobile/features/home/widgets/home_action_card.dart';
 
-/// Borderless bento shortcuts — Daily 5 hero on top, Trust + Chats below.
+/// Stacked shortcut cards — trust-report style for Daily 5, Trust, and Chats.
 class HomeShortcutsRow extends StatelessWidget {
   const HomeShortcutsRow({
     super.key,
@@ -17,154 +18,46 @@ class HomeShortcutsRow extends StatelessWidget {
   final int? trustScore;
   final String? trustTier;
 
-  static const _gap = 6.0;
-
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: AppRadius.r16,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _BentoCell(
-            accent: AccentColor.violet,
-            onTap: () => onNavigate(VcNavTab.daily5),
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.lg,
-              AppSpacing.xl,
-            ),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  right: -4,
-                  bottom: -12,
-                  child: Icon(
-                    PhosphorIconsFill.diamond,
-                    size: 80,
-                    color: AppColors.violet.withValues(alpha: 0.14),
-                  ),
-                ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Daily 5',
-                      style: AppTypography.labelCaps(color: AppColors.violet),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'Your morning picks',
-                      style: AppTypography.title().copyWith(fontSize: 18),
-                    ),
-                    const SizedBox(height: AppSpacing.xxs),
-                    Text(
-                      'Five curated profiles, refreshed daily',
-                      style: AppTypography.supporting(),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: _gap),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _BentoCell(
-                  accent: AccentColor.mint,
-                  onTap: () => onNavigate(VcNavTab.trust),
-                  child: _CompactShortcutContent(
-                    icon: PhosphorIconsRegular.shieldCheck,
-                    accent: AccentColor.mint,
-                    label: 'Trust',
-                    value: trustScore != null
-                        ? '$trustScore · ${TrustTierLabels.label(trustTier)}'
-                        : 'Your score',
-                  ),
-                ),
-              ),
-              const SizedBox(width: _gap),
-              Expanded(
-                child: _BentoCell(
-                  accent: AccentColor.coral,
-                  onTap: () => onNavigate(VcNavTab.chat),
-                  child: _CompactShortcutContent(
-                    icon: PhosphorIconsRegular.chatCircle,
-                    accent: AccentColor.coral,
-                    label: 'Chats',
-                    value: 'Messages',
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
+    final trustSubtitle = trustScore != null
+        ? '$trustScore · ${TrustTierLabels.label(trustTier)}'
+        : 'View your trust report';
 
-class _BentoCell extends StatelessWidget {
-  const _BentoCell({
-    required this.accent,
-    required this.onTap,
-    required this.child,
-    this.padding = const EdgeInsets.all(AppSpacing.lg),
-  });
-
-  final AccentColor accent;
-  final VoidCallback onTap;
-  final Widget child;
-  final EdgeInsets padding;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: accent.dim,
-      child: InkWell(
-        onTap: onTap,
-        splashColor: accent.main.withValues(alpha: 0.08),
-        highlightColor: accent.main.withValues(alpha: 0.04),
-        child: Padding(padding: padding, child: child),
-      ),
-    );
-  }
-}
-
-class _CompactShortcutContent extends StatelessWidget {
-  const _CompactShortcutContent({
-    required this.icon,
-    required this.accent,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final AccentColor accent;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Icon(icon, size: 22, color: accent.main),
-        const SizedBox(height: AppSpacing.md),
-        Text(
-          label,
-          style: AppTypography.labelCaps(color: accent.main),
+        HomeActionCard(
+          icon: PhosphorIconsFill.diamond,
+          iconColor: AppColors.violet,
+          iconBackground: AppColors.violetDim,
+          label: 'Daily 5',
+          labelColor: AppColors.violet,
+          title: 'Your morning picks',
+          subtitle: 'Five curated profiles, refreshed daily',
+          onTap: () => onNavigate(VcNavTab.daily5),
         ),
-        const SizedBox(height: AppSpacing.xxs),
-        Text(
-          value,
-          style: AppTypography.supporting(color: AppColors.textPrimary),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
+        const SizedBox(height: AppSpacing.sm),
+        HomeActionCard(
+          icon: PhosphorIconsRegular.shieldCheck,
+          iconColor: AppColors.mint,
+          iconBackground: AppColors.mintDim,
+          label: 'Trust',
+          labelColor: AppColors.mint,
+          title: 'Trust report',
+          subtitle: trustSubtitle,
+          onTap: () => onNavigate(VcNavTab.trust),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        HomeActionCard(
+          icon: PhosphorIconsRegular.chatCircle,
+          iconColor: AppColors.coral,
+          iconBackground: AppColors.coralDim,
+          label: 'Chats',
+          labelColor: AppColors.coral,
+          title: 'Messages',
+          subtitle: 'Conversations with your matches',
+          onTap: () => onNavigate(VcNavTab.chat),
         ),
       ],
     );
