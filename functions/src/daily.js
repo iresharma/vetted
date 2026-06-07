@@ -116,6 +116,49 @@ exports.getDailyQueue = onCall(callableDefaults, async (request) => {
   }
 });
 
+exports.getMatchProfile = onCall(callableDefaults, async (request) => {
+  const uid = requireUid(request);
+  const targetUid = request.data?.targetUid;
+  if (!targetUid) {
+    throw new HttpsError("invalid-argument", "targetUid is required.");
+  }
+  if (targetUid === uid) {
+    throw new HttpsError("invalid-argument", "Cannot load your own match profile.");
+  }
+
+  try {
+    const result = await query(
+      `SELECT p.*, u.verified_age, ts.score AS trust_score, ts.tier AS trust_tier
+       FROM profiles p
+       JOIN users u ON u.uid = p.uid
+       LEFT JOIN trust_scores ts ON ts.uid = p.uid
+       WHERE p.uid = $1
+         AND EXISTS (
+           SELECT 1
+           FROM interactions i
+           WHERE i.is_mutual = TRUE
+             AND (
+               (i.actor_uid = $2 AND i.target_uid = $1)
+               OR (i.actor_uid = $1 AND i.target_uid = $2)
+             )
+         )`,
+      [targetUid, uid]
+    );
+
+    if (result.rowCount === 0) {
+      throw new HttpsError(
+        "permission-denied",
+        "Profile is only available for mutual matches."
+      );
+    }
+
+    return { profile: hydrateProfileSummary(result.rows[0]) };
+  } catch (error) {
+    if (error instanceof HttpsError) throw error;
+    throw mapDbError(error);
+  }
+});
+
 exports.markDailyQueueShown = onCall(callableDefaults, async (request) => {
   const uid = requireUid(request);
   const queueId = request.data?.queueId;

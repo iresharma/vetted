@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
+import 'package:vetted_club_mobile/features/chat/widgets/chat_user_avatar.dart';
 import 'package:vetted_club_mobile/features/daily/utils/daily_field_labels.dart';
 
 class ChatThreadHeader extends StatelessWidget {
@@ -9,11 +10,15 @@ class ChatThreadHeader extends StatelessWidget {
     required this.otherUserName,
     this.otherUserPhotoUrl,
     this.onBack,
+    this.onViewProfile,
+    this.loadingProfile = false,
   });
 
   final String otherUserName;
   final String? otherUserPhotoUrl;
   final VoidCallback? onBack;
+  final VoidCallback? onViewProfile;
+  final bool loadingProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -28,54 +33,80 @@ class ChatThreadHeader extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
-          AppSpacing.sm,
+          AppSpacing.xs,
           AppSpacing.sm,
           AppSpacing.screenHorizontal,
           AppSpacing.md,
         ),
         child: Row(
           children: [
-            SizedBox(
-              width: 44,
-              height: 48,
-              child: Center(
-                child: IconButton(
-                  onPressed: onBack ?? () => Navigator.of(context).pop(),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 40,
-                    minHeight: 40,
-                  ),
-                  icon: const Icon(
-                    PhosphorIconsRegular.arrowLeft,
-                    color: AppColors.textPrimary,
-                    size: 22,
-                  ),
-                ),
+            IconButton(
+              onPressed: onBack ?? () => Navigator.of(context).pop(),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              icon: const Icon(
+                PhosphorIconsRegular.arrowLeft,
+                color: AppColors.textPrimary,
+                size: 22,
               ),
             ),
-            ChatUserAvatar(
-              photoUrl: otherUserPhotoUrl,
-              name: displayName,
-            ),
-            const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Messages',
-                    style: AppTypography.eyebrow(color: AppColors.textMuted),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: loadingProfile ? null : onViewProfile,
+                  borderRadius: AppRadius.r12,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppSpacing.xxs,
+                    ),
+                    child: Row(
+                      children: [
+                        ChatUserAvatar(
+                          photoUrl: otherUserPhotoUrl,
+                          name: displayName,
+                          size: 52,
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "It's mutual.",
+                                style: AppTypography.eyebrow(
+                                  color: AppColors.coral,
+                                ),
+                              ),
+                              const SizedBox(height: AppSpacing.xxs),
+                              Text(
+                                displayName,
+                                style: AppTypography.title(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (loadingProfile)
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.coral,
+                            ),
+                          )
+                        else
+                          const Icon(
+                            PhosphorIconsRegular.caretRight,
+                            size: 16,
+                            color: AppColors.textMuted,
+                          ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    displayName,
-                    style: AppTypography.headline(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -85,40 +116,54 @@ class ChatThreadHeader extends StatelessWidget {
   }
 }
 
-class ChatUserAvatar extends StatelessWidget {
-  const ChatUserAvatar({
+class ChatEmptyConversation extends StatelessWidget {
+  const ChatEmptyConversation({
     super.key,
-    this.photoUrl,
-    required this.name,
-    this.size = 44,
+    required this.otherUserName,
+    this.otherUserPhotoUrl,
   });
 
-  final String? photoUrl;
-  final String name;
-  final double size;
+  final String otherUserName;
+  final String? otherUserPhotoUrl;
 
   @override
   Widget build(BuildContext context) {
-    final initial = dailyProfileInitial(name);
-    final url = photoUrl?.trim();
+    final displayName = cleanDailyDisplayName(otherUserName);
 
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.border, width: 0.5),
-        color: AppColors.s3,
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: url != null && url.isNotEmpty
-          ? Image.network(url, fit: BoxFit.cover)
-          : Center(
-              child: Text(
-                initial,
-                style: AppTypography.title().copyWith(fontSize: size * 0.38),
-              ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ChatUserAvatar(
+              photoUrl: otherUserPhotoUrl,
+              name: displayName,
+              size: 80,
             ),
+            const SizedBox(height: AppSpacing.xl),
+            Text(
+              "It's mutual.",
+              style: AppTypography.headline(color: AppColors.coral).copyWith(
+                fontSize: 24,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'You and $displayName both said yes.',
+              textAlign: TextAlign.center,
+              style: AppTypography.body(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Say hi with something real — not just "hey".',
+              textAlign: TextAlign.center,
+              style: AppTypography.supporting(color: AppColors.textMuted),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

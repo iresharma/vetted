@@ -5,6 +5,7 @@ abstract final class ChatThreadLauncher {
   static Future<void> open(
     BuildContext context, {
     required String threadId,
+    required String otherUserId,
     required String otherUserName,
     String? otherUserPhotoUrl,
   }) {
@@ -12,6 +13,7 @@ abstract final class ChatThreadLauncher {
       MaterialPageRoute<void>(
         builder: (_) => ChatThreadScreen(
           threadId: threadId,
+          otherUserId: otherUserId,
           otherUserName: otherUserName,
           otherUserPhotoUrl: otherUserPhotoUrl,
         ),

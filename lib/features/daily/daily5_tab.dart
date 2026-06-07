@@ -13,6 +13,7 @@ import 'package:vetted_club_mobile/features/daily/widgets/daily5_interest_sent_s
 import 'package:vetted_club_mobile/features/daily/widgets/daily5_match_celebration.dart';
 import 'package:vetted_club_mobile/features/daily/widgets/daily5_profile_card.dart';
 import 'package:vetted_club_mobile/features/chat/chat_thread_launcher.dart';
+import 'package:vetted_club_mobile/features/profile/data/models/profile_draft.dart';
 import 'package:vetted_club_mobile/features/profile/providers/profile_draft_notifier.dart';
 import 'package:vetted_club_mobile/features/profile/providers/profile_providers.dart';
 import 'package:vetted_club_mobile/core/services/chat_service.dart';
@@ -114,16 +115,20 @@ class _Daily5TabState extends ConsumerState<Daily5Tab> {
           onSayHi: () async {
             final currentName =
                 draft?.displayName ?? draft?.firstName ?? 'Member';
+            final currentPhoto = _primaryPhotoUrl(draft);
             try {
               final threadId = await ChatService.instance.getOrCreateThread(
                 otherUid: entry.profile.uid,
                 otherName: otherName,
                 currentName: currentName,
+                otherPhotoUrl: entry.profile.primaryPhoto,
+                currentPhotoUrl: currentPhoto,
               );
               if (!mounted) return;
               await ChatThreadLauncher.open(
                 context,
                 threadId: threadId,
+                otherUserId: entry.profile.uid,
                 otherUserName: otherName,
                 otherUserPhotoUrl: entry.profile.primaryPhoto,
               );
@@ -333,4 +338,13 @@ class _Daily5TabState extends ConsumerState<Daily5Tab> {
       ),
     );
   }
+}
+
+String? _primaryPhotoUrl(ProfileDraft? draft) {
+  final urls = draft?.values['photo_urls'];
+  if (urls is List && urls.isNotEmpty) {
+    final url = urls.first?.toString().trim();
+    if (url != null && url.isNotEmpty) return url;
+  }
+  return null;
 }

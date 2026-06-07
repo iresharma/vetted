@@ -8,6 +8,7 @@ class ChatThreadPreview {
     required this.lastMessage,
     this.lastMessageAt,
     this.unreadCount = 0,
+    this.otherUserPhotoUrl,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class ChatThreadPreview {
   final String lastMessage;
   final DateTime? lastMessageAt;
   final int unreadCount;
+  final String? otherUserPhotoUrl;
 
   factory ChatThreadPreview.fromDoc(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -28,6 +30,7 @@ class ChatThreadPreview {
       orElse: () => '',
     );
     final names = Map<String, dynamic>.from(data['memberNames'] ?? {});
+    final photos = Map<String, dynamic>.from(data['memberPhotoUrls'] ?? {});
     final unreadMap = Map<String, dynamic>.from(data['unreadCount'] ?? {});
 
     return ChatThreadPreview(
@@ -37,6 +40,7 @@ class ChatThreadPreview {
       lastMessage: data['lastMessage'] as String? ?? '',
       lastMessageAt: (data['lastMessageAt'] as Timestamp?)?.toDate(),
       unreadCount: (unreadMap[currentUid] as num?)?.toInt() ?? 0,
+      otherUserPhotoUrl: photos[otherUid]?.toString(),
     );
   }
 
@@ -51,6 +55,7 @@ class ChatThreadPreview {
           ? DateTime.tryParse(lastMessageAtRaw)
           : null,
       unreadCount: (json['unreadCount'] as num?)?.toInt() ?? 0,
+      otherUserPhotoUrl: json['otherUserPhotoUrl'] as String?,
     );
   }
 
@@ -62,5 +67,21 @@ class ChatThreadPreview {
         if (lastMessageAt != null)
           'lastMessageAt': lastMessageAt!.toIso8601String(),
         'unreadCount': unreadCount,
+        if (otherUserPhotoUrl != null)
+          'otherUserPhotoUrl': otherUserPhotoUrl,
       };
+
+  ChatThreadPreview copyWith({
+    String? otherUserPhotoUrl,
+  }) {
+    return ChatThreadPreview(
+      id: id,
+      otherUserId: otherUserId,
+      otherUserName: otherUserName,
+      lastMessage: lastMessage,
+      lastMessageAt: lastMessageAt,
+      unreadCount: unreadCount,
+      otherUserPhotoUrl: otherUserPhotoUrl ?? this.otherUserPhotoUrl,
+    );
+  }
 }

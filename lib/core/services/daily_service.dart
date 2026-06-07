@@ -34,6 +34,20 @@ class DailyService {
     );
     return DailyInteractionResult.fromMap(data);
   }
+
+  Future<DailyProfileSummary> getMatchProfile(String targetUid) async {
+    final data = await FunctionsService.instance.call(
+      'getMatchProfile',
+      data: {'targetUid': targetUid},
+    );
+    final profileRaw = data['profile'];
+    if (profileRaw is! Map) {
+      throw StateError('Invalid match profile response.');
+    }
+    return DailyProfileSummary.fromMap(
+      Map<String, dynamic>.from(profileRaw),
+    );
+  }
 }
 
 class DailyInteractionResult {

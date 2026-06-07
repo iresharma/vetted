@@ -41,6 +41,8 @@ class ChatService {
     required String otherUid,
     required String otherName,
     required String currentName,
+    String? otherPhotoUrl,
+    String? currentPhotoUrl,
   }) async {
     final currentUid = _currentUid;
     if (currentUid == null) {
@@ -53,6 +55,16 @@ class ChatService {
     final ref = _firestore.collection(_threadsCollection).doc(threadId);
     final snap = await ref.get();
 
+    final photoUpdates = <String, String>{};
+    final otherUrl = otherPhotoUrl?.trim();
+    final currentUrl = currentPhotoUrl?.trim();
+    if (otherUrl != null && otherUrl.isNotEmpty) {
+      photoUpdates[otherUid] = otherUrl;
+    }
+    if (currentUrl != null && currentUrl.isNotEmpty) {
+      photoUpdates[currentUid] = currentUrl;
+    }
+
     if (!snap.exists) {
       final members = [currentUid, otherUid]..sort();
       await ref.set({
@@ -61,6 +73,7 @@ class ChatService {
           currentUid: currentName,
           otherUid: otherName,
         },
+        if (photoUpdates.isNotEmpty) 'memberPhotoUrls': photoUpdates,
         'lastMessage': '',
         'lastMessageAt': FieldValue.serverTimestamp(),
         'unreadCount': {
@@ -68,9 +81,33 @@ class ChatService {
           otherUid: 0,
         },
       });
+    } else if (photoUpdates.isNotEmpty) {
+      await ref.update({
+        for (final entry in photoUpdates.entries)
+          'memberPhotoUrls.${entry.key}': entry.value,
+      });
     }
 
     return threadId;
+  }
+
+  Future<void> ensureMemberPhoto({
+    required String threadId,
+    required String memberUid,
+    required String photoUrl,
+  }) async {
+    final url = photoUrl.trim();
+    if (url.isEmpty) return;
+
+    try {
+      await _firestore.collection(_threadsCollection).doc(threadId).update({
+        'memberPhotoUrls.$memberUid': url,
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('ChatService.ensureMemberPhoto failed: $e');
+      }
+    }
   }
 
   Future<void> sendMessage(String threadId, String text) async {

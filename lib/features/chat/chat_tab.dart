@@ -10,7 +10,7 @@ class ChatTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final threadsAsync = ref.watch(chatThreadsStreamProvider);
+    final threadsAsync = ref.watch(enrichedChatThreadsProvider);
 
     return threadsAsync.when(
       data: (threads) {
@@ -33,7 +33,8 @@ class ChatTab extends ConsumerWidget {
             AppSpacing.xxxl,
           ),
           itemCount: threads.length,
-          itemBuilder: (_, index) => ChatThreadListTile(thread: threads[index]),
+          itemBuilder: (_, index) =>
+              ChatThreadListTile(thread: threads[index]),
         );
       },
       loading: () => const Center(child: VcLoadingIndicator(compact: true)),

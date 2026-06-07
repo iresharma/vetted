@@ -5,18 +5,21 @@ import 'package:vetted_club_mobile/core/theme/theme.dart';
 import 'package:vetted_club_mobile/core/widgets/widgets.dart';
 import 'package:vetted_club_mobile/features/chat/providers/chat_providers.dart';
 import 'package:vetted_club_mobile/features/chat/widgets/chat_composer.dart';
+import 'package:vetted_club_mobile/features/chat/widgets/chat_message_list.dart';
 import 'package:vetted_club_mobile/features/chat/widgets/chat_thread_header.dart';
-import 'package:vetted_club_mobile/features/chat/widgets/chat_message_bubble.dart';
+import 'package:vetted_club_mobile/features/daily/widgets/daily5_full_profile_sheet.dart';
 
 class ChatThreadScreen extends ConsumerStatefulWidget {
   const ChatThreadScreen({
     super.key,
     required this.threadId,
+    required this.otherUserId,
     required this.otherUserName,
     this.otherUserPhotoUrl,
   });
 
   final String threadId;
+  final String otherUserId;
   final String otherUserName;
   final String? otherUserPhotoUrl;
 
@@ -28,6 +31,8 @@ class _ChatThreadScreenState extends ConsumerState<ChatThreadScreen> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   bool _sending = false;
+  bool _loadingProfile = false;
+  int _lastMessageCount = 0;
 
   @override
   void initState() {
@@ -42,14 +47,18 @@ class _ChatThreadScreenState extends ConsumerState<ChatThreadScreen> {
     super.dispose();
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (!_scrollController.hasClients) return;
+      final target = _scrollController.position.maxScrollExtent;
+      if (animated) {
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
+          target,
           duration: AppMotion.slideDuration,
           curve: AppMotion.standardCurve,
         );
+      } else {
+        _scrollController.jumpTo(target);
       }
     });
   }
@@ -69,6 +78,35 @@ class _ChatThreadScreenState extends ConsumerState<ChatThreadScreen> {
     }
   }
 
+  Future<void> _openProfile() async {
+    if (_loadingProfile) return;
+
+    setState(() => _loadingProfile = true);
+    try {
+      final profile = await ref.read(
+        chatMatchProfileProvider(widget.otherUserId).future,
+      );
+      if (!mounted) return;
+      await Daily5FullProfileSheet.show(
+        context,
+        profile: profile,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not load profile: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
+    }
+  }
+
+  void _maybeScrollToBottom(int messageCount) {
+    if (messageCount == _lastMessageCount) return;
+    _lastMessageCount = messageCount;
+    _scrollToBottom(animated: messageCount > 1);
+  }
+
   @override
   Widget build(BuildContext context) {
     final messagesAsync =
@@ -82,34 +120,39 @@ class _ChatThreadScreenState extends ConsumerState<ChatThreadScreen> {
           ChatThreadHeader(
             otherUserName: widget.otherUserName,
             otherUserPhotoUrl: widget.otherUserPhotoUrl,
+            onViewProfile: _openProfile,
+            loadingProfile: _loadingProfile,
           ),
           Expanded(
             child: messagesAsync.when(
               data: (messages) {
-                _scrollToBottom();
+                _maybeScrollToBottom(messages.length);
+
                 if (messages.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'Say hi to ${widget.otherUserName}',
-                      style: AppTypography.body(color: AppColors.textSecondary),
-                    ),
+                  return ChatEmptyConversation(
+                    otherUserName: widget.otherUserName,
+                    otherUserPhotoUrl: widget.otherUserPhotoUrl,
                   );
                 }
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                  itemCount: messages.length,
-                  itemBuilder: (_, index) =>
-                      ChatMessageBubble(message: messages[index]),
+
+                return ChatMessageList(
+                  messages: messages,
+                  scrollController: _scrollController,
                 );
               },
               loading: () => const Center(
                 child: VcLoadingIndicator(compact: true),
               ),
               error: (_, __) => Center(
-                child: Text(
-                  'Could not load messages',
-                  style: AppTypography.body(color: AppColors.textSecondary),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xxl,
+                  ),
+                  child: Text(
+                    'Could not load messages. Check your connection and try again.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.body(color: AppColors.textSecondary),
+                  ),
                 ),
               ),
             ),

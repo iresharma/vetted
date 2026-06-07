@@ -21,6 +21,7 @@ exports.submitValuesQuiz = values.submitValuesQuiz;
 exports.skipValuesQuiz = values.skipValuesQuiz;
 
 exports.getDailyQueue = daily.getDailyQueue;
+exports.getMatchProfile = daily.getMatchProfile;
 exports.markDailyQueueShown = daily.markDailyQueueShown;
 exports.recordDailyInteraction = daily.recordDailyInteraction;
 exports.generateDailyQueueScheduled = daily.generateDailyQueueScheduled;

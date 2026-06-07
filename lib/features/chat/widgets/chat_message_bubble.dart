@@ -1,67 +1,122 @@
 import 'package:flutter/material.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
+import 'package:vetted_club_mobile/core/widgets/widgets.dart';
 import 'package:vetted_club_mobile/features/chat/data/models/chat_message.dart';
+import 'package:vetted_club_mobile/features/chat/utils/chat_formatters.dart';
 
 class ChatMessageBubble extends StatelessWidget {
-  const ChatMessageBubble({super.key, required this.message});
+  const ChatMessageBubble({
+    super.key,
+    required this.message,
+    this.isFirstInGroup = true,
+    this.isLastInGroup = true,
+    this.showTimestamp = true,
+  });
 
   final ChatMessage message;
+  final bool isFirstInGroup;
+  final bool isLastInGroup;
+  final bool showTimestamp;
 
   @override
   Widget build(BuildContext context) {
     final isMe = message.isFromCurrentUser;
 
-    return Align(
-      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: EdgeInsets.only(
-          top: 4,
-          bottom: 4,
-          left: isMe ? 64 : AppSpacing.screenHorizontal,
-          right: isMe ? AppSpacing.screenHorizontal : 64,
-        ),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 10,
-        ),
-        decoration: BoxDecoration(
-          color: isMe ? AppColors.violet : AppColors.s3,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(18),
-            topRight: const Radius.circular(18),
-            bottomLeft: Radius.circular(isMe ? 18 : 4),
-            bottomRight: Radius.circular(isMe ? 4 : 18),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message.text,
-              style: AppTypography.body(
-                color: isMe ? AppColors.onViolet : AppColors.textPrimary,
-              ).copyWith(fontSize: 15),
+    return Padding(
+      padding: EdgeInsets.only(
+        top: isFirstInGroup ? AppSpacing.md : AppSpacing.xxs,
+        bottom: isLastInGroup ? AppSpacing.xxs : 2,
+        left: AppSpacing.screenHorizontal,
+        right: AppSpacing.screenHorizontal,
+      ),
+      child: Row(
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (isMe) const Spacer(flex: 1),
+          Flexible(
+            flex: 4,
+            child: Column(
+              crossAxisAlignment:
+                  isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                if (isMe)
+                  _SentBubble(text: message.text)
+                else
+                  _ReceivedBubble(text: message.text),
+                if (showTimestamp && message.createdAt != null)
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: AppSpacing.xxs,
+                      left: AppSpacing.xxs,
+                      right: AppSpacing.xxs,
+                    ),
+                    child: Text(
+                      ChatFormatters.messageTime(message.createdAt!),
+                      style: AppTypography.statCaption(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            if (message.createdAt != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(
-                  _formatTime(message.createdAt!),
-                  style: AppTypography.supporting(
-                    color: (isMe ? AppColors.onViolet : AppColors.textSecondary)
-                        .withValues(alpha: 0.6),
-                  ).copyWith(fontSize: 11),
-                ),
-              ),
-          ],
+          ),
+          if (!isMe) const Spacer(flex: 1),
+        ],
+      ),
+    );
+  }
+}
+
+class _SentBubble extends StatelessWidget {
+  const _SentBubble({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.coralDim,
+        borderRadius: AppRadius.r12,
+        border: Border.all(
+          color: AppColors.coral.withValues(alpha: 0.35),
+          width: 0.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        child: Text(
+          text,
+          style: AppTypography.body(color: AppColors.textPrimary).copyWith(
+            height: 1.5,
+          ),
         ),
       ),
     );
   }
+}
 
-  String _formatTime(DateTime dt) {
-    final h = dt.hour.toString().padLeft(2, '0');
-    final m = dt.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+class _ReceivedBubble extends StatelessWidget {
+  const _ReceivedBubble({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return VcSoftCard(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      child: Text(
+        text,
+        style: AppTypography.body().copyWith(height: 1.5),
+      ),
+    );
   }
 }
