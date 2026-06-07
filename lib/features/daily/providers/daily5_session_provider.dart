@@ -27,6 +27,7 @@ final daily5SessionProvider =
 
 class Daily5SessionNotifier extends AsyncNotifier<Daily5Session?> {
   bool _activating = false;
+  bool _pendingForceRefresh = false;
 
   @override
   Future<Daily5Session?> build() async => null;
@@ -44,7 +45,10 @@ class Daily5SessionNotifier extends AsyncNotifier<Daily5Session?> {
 
   /// Loads quiz status + queue (when quiz is done) for the Daily 5 tab.
   Future<void> activate({bool force = false}) async {
-    if (_activating) return;
+    if (_activating) {
+      if (force) _pendingForceRefresh = true;
+      return;
+    }
 
     final existing = state.value;
     if (!force && existing != null && !state.hasError) {
@@ -61,7 +65,8 @@ class Daily5SessionNotifier extends AsyncNotifier<Daily5Session?> {
     }
 
     _activating = true;
-    if (existing?.queue == null) {
+    final hasVisibleQueue = existing?.queue != null;
+    if (!hasVisibleQueue) {
       state = const AsyncLoading();
     }
 
@@ -79,13 +84,17 @@ class Daily5SessionNotifier extends AsyncNotifier<Daily5Session?> {
         state = AsyncData(
           Daily5Session(needsQuiz: true, quizStatus: _resolvedQuizStatus()),
         );
-      } else if (existing != null && existing.queue != null) {
+      } else if (hasVisibleQueue && existing != null) {
         state = AsyncData(existing);
       } else {
         state = AsyncError(error, stackTrace);
       }
     } finally {
       _activating = false;
+      if (_pendingForceRefresh) {
+        _pendingForceRefresh = false;
+        await activate(force: true);
+      }
     }
   }
 

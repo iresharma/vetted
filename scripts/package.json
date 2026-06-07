@@ -7,7 +7,12 @@
   "type": "commonjs",
   "main": "backfill-trust-scores.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "verify-firebase-admin": "node verify-firebase-admin.js",
+    "seed-test-users": "node seed-test-users.js",
+    "generate-daily-queue": "node generate-daily-queue.js",
+    "seed-test-matches": "node seed-test-matches.js",
+    "seed-test-chat": "node seed-test-chat.js",
+    "cleanup-test-users": "node cleanup-test-users.js"
   },
   "dependencies": {
     "pg": "^8.21.0"

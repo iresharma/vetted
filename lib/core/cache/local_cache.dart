@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:vetted_club_mobile/core/services/registration_service.dart';
+import 'package:vetted_club_mobile/features/chat/data/models/chat_message.dart';
+import 'package:vetted_club_mobile/features/chat/data/models/chat_thread_preview.dart';
 import 'package:vetted_club_mobile/features/profile/data/models/profile_draft.dart';
 import 'package:vetted_club_mobile/features/trust/data/models/trust_report.dart';
 
@@ -31,6 +33,9 @@ class LocalCache {
       'trust_report:$uid:${category ?? 'all'}';
 
   static String _valuesQuizStatusKey(String uid) => 'values_quiz_status:$uid';
+  static String _chatThreadsKey(String uid) => 'chat_threads:$uid';
+  static String _chatMessagesKey(String uid, String threadId) =>
+      'chat_messages:$uid:$threadId';
 
   static ProfileDraft? readProfileDraft(String uid) =>
       _read(_profileDraftKey(uid), ProfileDraft.fromJson);
@@ -62,12 +67,39 @@ class LocalCache {
   ) =>
       _write(_trustReportKey(uid, category), report.toJson());
 
+  static List<ChatThreadPreview> readChatThreads(String uid) =>
+      _readList(_chatThreadsKey(uid), ChatThreadPreview.fromJson);
+
+  static Future<void> writeChatThreads(
+    String uid,
+    List<ChatThreadPreview> threads,
+  ) =>
+      _writeList(
+        _chatThreadsKey(uid),
+        threads.map((t) => t.toJson()).toList(),
+      );
+
+  static List<ChatMessage> readChatMessages(String uid, String threadId) =>
+      _readList(_chatMessagesKey(uid, threadId), ChatMessage.fromJson);
+
+  static Future<void> writeChatMessages(
+    String uid,
+    String threadId,
+    List<ChatMessage> messages,
+  ) =>
+      _writeList(
+        _chatMessagesKey(uid, threadId),
+        messages.map((m) => m.toJson()).toList(),
+      );
+
   static Future<void> clearUser(String uid) async {
     final prefix = [
       'profile_draft:$uid',
       'registration_status:$uid',
       'values_quiz_status:$uid',
       'trust_report:$uid:',
+      'chat_threads:$uid',
+      'chat_messages:$uid:',
     ];
     final keys = _store.keys
         .where((key) => prefix.any((p) => key.toString().startsWith(p)))
@@ -90,5 +122,29 @@ class LocalCache {
 
   static Future<void> _write(String key, Map<String, dynamic> json) async {
     await _store.put(key, jsonEncode(json));
+  }
+
+  static List<T> _readList<T>(
+    String key,
+    T Function(Map<String, dynamic> json) parse,
+  ) {
+    final raw = _store.get(key);
+    if (raw == null) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
+      return decoded
+          .map((item) => parse(Map<String, dynamic>.from(item as Map)))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> _writeList(
+    String key,
+    List<Map<String, dynamic>> items,
+  ) async {
+    await _store.put(key, jsonEncode(items));
   }
 }

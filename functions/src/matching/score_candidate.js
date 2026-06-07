@@ -76,6 +76,11 @@ function scoreCandidate({
     Math.min(100, rawScore + trustBonus - recencyPenalty)
   );
 
+  if (trustBonus > 0) breakdown._trustBonus = trustBonus;
+  if (recencyPenalty > 0) breakdown._recencyPenalty = recencyPenalty;
+  breakdown._rawScore = rawScore;
+  breakdown._computedOverall = compatibilityScore;
+
   const viewerVal = matchReasonField
     ? getFieldValue(viewerProfile, matchReasonField)
     : null;

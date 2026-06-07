@@ -23,7 +23,7 @@ class VcMatchOverlay extends StatefulWidget {
 }
 
 class _VcMatchOverlayState extends State<VcMatchOverlay>
-    with TickerProviderStateMixin {
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -46,6 +46,7 @@ class _VcMatchOverlayState extends State<VcMatchOverlay>
 
   @override
   void dispose() {
+    _controller.stop();
     _controller.dispose();
     super.dispose();
   }
@@ -54,62 +55,68 @@ class _VcMatchOverlayState extends State<VcMatchOverlay>
   Widget build(BuildContext context) {
     if (!widget.visible) return const SizedBox.shrink();
 
-    return ColoredBox(
-      color: AppColors.bg.withValues(alpha: 0.92),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.screenHorizontal),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _Staggered(
-                controller: _controller,
-                index: 0,
-                child: Text(
-                  "It's mutual.",
-                  style: AppTypography.headline(color: AppColors.coral),
-                  textAlign: TextAlign.center,
+    return SizedBox.expand(
+      child: ColoredBox(
+        color: AppColors.bg.withValues(alpha: 0.92),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.screenHorizontal),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _Staggered(
+                  controller: _controller,
+                  index: 0,
+                  child: Text(
+                    "It's mutual.",
+                    style: AppTypography.headline(color: AppColors.coral),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.xxxl),
-              _Staggered(
-                controller: _controller,
-                index: 1,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _MatchAvatar(initial: widget.yourInitial),
-                    const SizedBox(width: AppSpacing.md),
-                    const Icon(Icons.favorite,
-                        color: AppColors.coral, size: 28),
-                    const SizedBox(width: AppSpacing.md),
-                    _MatchAvatar(initial: widget.otherInitial),
-                  ],
+                const SizedBox(height: AppSpacing.xxxl),
+                _Staggered(
+                  controller: _controller,
+                  index: 1,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _MatchAvatar(initial: widget.yourInitial),
+                      const SizedBox(width: AppSpacing.md),
+                      const Icon(
+                        Icons.favorite,
+                        color: AppColors.coral,
+                        size: 28,
+                      ),
+                      const SizedBox(width: AppSpacing.md),
+                      _MatchAvatar(initial: widget.otherInitial),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              _Staggered(
-                controller: _controller,
-                index: 2,
-                child: Text(
-                  'You and ${widget.otherName} both said yes.',
-                  style: AppTypography.body(color: AppColors.textSecondary),
-                  textAlign: TextAlign.center,
+                const SizedBox(height: AppSpacing.xl),
+                _Staggered(
+                  controller: _controller,
+                  index: 2,
+                  child: Text(
+                    'You and ${widget.otherName} both said yes.',
+                    style: AppTypography.body(color: AppColors.textSecondary),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.xxxl),
-              _Staggered(
-                controller: _controller,
-                index: 3,
-                child: VcButton(
-                  label: 'Say hi →',
-                  variant: VcButtonVariant.coral,
-                  size: VcButtonSize.large,
-                  expanded: true,
-                  onTap: widget.onSayHi,
+                const SizedBox(height: AppSpacing.xxxl),
+                _Staggered(
+                  controller: _controller,
+                  index: 3,
+                  child: VcButton(
+                    label: 'Say hi →',
+                    variant: VcButtonVariant.coral,
+                    size: VcButtonSize.large,
+                    expanded: true,
+                    onTap: widget.onSayHi,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -124,6 +131,8 @@ class _MatchAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final letter = initial.isEmpty ? '?' : initial.characters.first.toUpperCase();
+
     return Container(
       width: 88,
       height: 88,
@@ -140,7 +149,7 @@ class _MatchAvatar extends StatelessWidget {
       ),
       alignment: Alignment.center,
       child: Text(
-        initial.toUpperCase(),
+        letter,
         style: AppTypography.headline().copyWith(fontSize: 32),
       ),
     );
@@ -158,22 +167,32 @@ class _Staggered extends StatelessWidget {
   final int index;
   final Widget child;
 
+  static const _window = 0.55;
+
+  static double _segmentProgress(double t, double delay) {
+    if (t <= delay) return 0;
+    if (t >= delay + _window) return 1;
+    return (t - delay) / _window;
+  }
+
   @override
   Widget build(BuildContext context) {
     final delay = index * 0.12;
-    final animation = CurvedAnimation(
-      parent: controller,
-      curve:
-          Interval(delay, (delay + 0.6).clamp(0, 1), curve: AppMotion.popCurve),
-    );
 
     return AnimatedBuilder(
-      animation: animation,
+      animation: controller,
       builder: (context, child) {
+        final segment = _segmentProgress(controller.value, delay);
+        final opacity = Curves.easeOutCubic.transform(segment);
+        final popValue = AppMotion.popCurve.transform(segment);
+        final popOvershoot = (popValue - 1.0).clamp(0.0, 0.12);
+        final scale =
+            (0.82 + (0.18 * opacity) + popOvershoot).clamp(0.82, 1.08);
+
         return Opacity(
-          opacity: animation.value,
+          opacity: opacity.clamp(0.0, 1.0),
           child: Transform.scale(
-            scale: 0.82 + (0.18 * animation.value),
+            scale: scale,
             child: child,
           ),
         );

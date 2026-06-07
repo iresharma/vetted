@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function threadDoc(id) {
+      return /databases/$(database)/documents/chat_threads/$(id);
+    }
+
+    // Thread ids are sorted uidA_uidB (Firebase uids do not contain underscores).
+    function isParticipantInThreadId(id) {
+      return isSignedIn()
+        && request.auth.uid in id.split('_');
+    }
+
+    function isMemberOfExistingThread() {
+      return isSignedIn()
+        && request.auth.uid in resource.data.members;
+    }
+
+    match /chat_threads/{threadId} {
+      // Existing threads: membership is enough for list/get queries.
+      // Non-existent docs: allow get so getOrCreateThread can check existence.
+      allow read: if isMemberOfExistingThread()
+        || (isParticipantInThreadId(threadId) && !exists(threadDoc(threadId)));
+
+      allow create: if isParticipantInThreadId(threadId)
+        && request.auth.uid in request.resource.data.members
+        && request.resource.data.members.size() == 2;
+
+      allow update: if isMemberOfExistingThread()
+        && request.auth.uid in request.resource.data.members
+        && request.resource.data.members == resource.data.members;
+
+      match /messages/{messageId} {
+        allow read: if isSignedIn()
+          && exists(threadDoc(threadId))
+          && request.auth.uid in get(threadDoc(threadId)).data.members;
+
+        allow create: if isSignedIn()
+          && exists(threadDoc(threadId))
+          && request.auth.uid in get(threadDoc(threadId)).data.members
+          && request.resource.data.senderId == request.auth.uid;
+      }
+    }
+  }
+}

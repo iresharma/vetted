@@ -10,6 +10,8 @@ import 'package:vetted_club_mobile/features/home/widgets/member_profile_tab.dart
 import 'package:vetted_club_mobile/features/daily/daily5_tab.dart';
 import 'package:vetted_club_mobile/features/home/providers/member_bootstrap_provider.dart';
 import 'package:vetted_club_mobile/features/values/providers/values_quiz_gate.dart';
+import 'package:vetted_club_mobile/features/chat/chat_tab.dart';
+import 'package:vetted_club_mobile/features/chat/providers/chat_providers.dart';
 import 'package:vetted_club_mobile/features/trust/screens/trust_report_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -54,6 +56,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       bottomNavigationBar: VcBottomNav(
         current: _navTab,
+        hasChatNotification: ref.watch(hasUnreadChatsProvider),
         onChanged: (tab) => setState(() => _navTab = tab),
       ),
     );
@@ -64,7 +67,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       index: _navTab.index,
       children: [
         HomeTab(onNavigate: (tab) => setState(() => _navTab = tab)),
-        const _ChatEmptyTab(),
+        const ChatTab(),
         Daily5Tab(
           user: widget.user,
           isActive: _navTab == VcNavTab.daily5,
@@ -77,21 +80,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onSignOut: _signOut,
         ),
       ],
-    );
-  }
-}
-
-class _ChatEmptyTab extends StatelessWidget {
-  const _ChatEmptyTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return const VcEmptyState(
-      imageAsset: AppAssets.emptyMailbox,
-      title: 'No conversations yet',
-      message:
-          'When you and someone both show interest, the conversation starts here. '
-          'Keep your profile sharp, show up on Daily 5, and your next match could land any day.',
     );
   }
 }

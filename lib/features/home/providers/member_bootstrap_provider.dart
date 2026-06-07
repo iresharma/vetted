@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:vetted_club_mobile/core/providers/auth_providers.dart';
 import 'package:vetted_club_mobile/features/daily/providers/daily5_session_provider.dart';
@@ -18,10 +16,10 @@ final memberBootstrapProvider = FutureProvider<void>((ref) async {
     ref.read(profileDraftProvider.future),
     ref.read(trustReportProvider(null).future),
     ref.read(registrationStatusProvider.notifier).refresh(uid),
-    ref.read(valuesQuizStatusProvider.future),
+    ref.read(valuesQuizStatusProvider.future).then((_) async {
+      if (!valuesQuizPendingFromRead(ref)) {
+        await ref.read(daily5SessionProvider.notifier).activate();
+      }
+    }),
   ]);
-
-  if (!valuesQuizPendingFromRead(ref)) {
-    unawaited(ref.read(daily5SessionProvider.notifier).activate());
-  }
 });

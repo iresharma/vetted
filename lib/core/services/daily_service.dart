@@ -41,8 +41,18 @@ class DailyInteractionResult {
 
   final bool isMutual;
 
+  static bool _asBool(dynamic value) {
+    if (value == true) return true;
+    if (value is num) return value != 0;
+    if (value is String) {
+      return value.toLowerCase() == 'true' || value == '1';
+    }
+    return false;
+  }
+
   factory DailyInteractionResult.fromMap(Map<String, dynamic> map) {
-    return DailyInteractionResult(isMutual: map['isMutual'] == true);
+    final raw = map['isMutual'] ?? map['is_mutual'];
+    return DailyInteractionResult(isMutual: _asBool(raw));
   }
 }
 
@@ -80,6 +90,7 @@ class DailyQueueEntry {
     required this.wasShown,
     required this.profile,
     this.scoreBreakdown = const {},
+    this.reverseInterested = false,
   });
 
   final String id;
@@ -90,6 +101,7 @@ class DailyQueueEntry {
   final bool wasShown;
   final DailyProfileSummary profile;
   final Map<String, dynamic> scoreBreakdown;
+  final bool reverseInterested;
 
   factory DailyQueueEntry.fromMap(Map<String, dynamic> map) {
     final profileRaw = map['profile'];
@@ -100,6 +112,7 @@ class DailyQueueEntry {
       matchReasonField: map['matchReasonField'] as String?,
       matchReasonLabel: map['matchReasonLabel'] as String?,
       wasShown: map['wasShown'] == true,
+      reverseInterested: map['reverseInterested'] == true,
       scoreBreakdown: map['scoreBreakdown'] is Map
           ? Map<String, dynamic>.from(map['scoreBreakdown'] as Map)
           : const {},
@@ -116,10 +129,22 @@ class DailyProfileSummary {
     this.displayName,
     this.age,
     this.city,
+    this.homeState,
     this.profession,
+    this.fieldOfWork,
+    this.educationLevel,
     this.faith,
     this.motherTongue,
     this.marriageTimeline,
+    this.diet,
+    this.drinking,
+    this.smoking,
+    this.familyStructure,
+    this.familyInvolvement,
+    this.kidsPreference,
+    this.willingToRelocate,
+    this.workMode,
+    this.openToInterFaith,
     this.photoUrls = const [],
     this.trustScore = 0,
     this.trustTier = 'trusted',
@@ -130,16 +155,29 @@ class DailyProfileSummary {
     this.prompt3Q,
     this.prompt3A,
     this.interests = const [],
+    this.profileExtras = const {},
   });
 
   final String uid;
   final String? displayName;
   final int? age;
   final String? city;
+  final String? homeState;
   final String? profession;
+  final String? fieldOfWork;
+  final String? educationLevel;
   final String? faith;
   final String? motherTongue;
   final String? marriageTimeline;
+  final String? diet;
+  final String? drinking;
+  final String? smoking;
+  final String? familyStructure;
+  final String? familyInvolvement;
+  final String? kidsPreference;
+  final bool? willingToRelocate;
+  final String? workMode;
+  final bool? openToInterFaith;
   final List<String> photoUrls;
   final int trustScore;
   final String trustTier;
@@ -150,6 +188,7 @@ class DailyProfileSummary {
   final String? prompt3Q;
   final String? prompt3A;
   final List<String> interests;
+  final Map<String, dynamic> profileExtras;
 
   String? get primaryPhoto =>
       photoUrls.isNotEmpty ? photoUrls.first : null;
@@ -179,10 +218,22 @@ class DailyProfileSummary {
       displayName: map['displayName'] as String?,
       age: (map['age'] as num?)?.toInt(),
       city: map['city'] as String?,
+      homeState: map['homeState'] as String?,
       profession: map['profession'] as String?,
+      fieldOfWork: map['fieldOfWork'] as String?,
+      educationLevel: map['educationLevel'] as String?,
       faith: map['faith'] as String?,
       motherTongue: map['motherTongue'] as String?,
       marriageTimeline: map['marriageTimeline'] as String?,
+      diet: map['diet'] as String?,
+      drinking: map['drinking'] as String?,
+      smoking: map['smoking'] as String?,
+      familyStructure: map['familyStructure'] as String?,
+      familyInvolvement: map['familyInvolvement'] as String?,
+      kidsPreference: map['kidsPreference'] as String?,
+      willingToRelocate: map['willingToRelocate'] as bool?,
+      workMode: map['workMode'] as String?,
+      openToInterFaith: map['openToInterFaith'] as bool?,
       photoUrls: asStringList(map['photoUrls']),
       trustScore: (map['trustScore'] as num?)?.toInt() ?? 0,
       trustTier: (map['trustTier'] as String?) ?? 'trusted',
@@ -193,6 +244,9 @@ class DailyProfileSummary {
       prompt3Q: map['prompt3Q'] as String?,
       prompt3A: map['prompt3A'] as String?,
       interests: asStringList(map['interests']),
+      profileExtras: map['profileExtras'] is Map
+          ? Map<String, dynamic>.from(map['profileExtras'] as Map)
+          : const {},
     );
   }
 }

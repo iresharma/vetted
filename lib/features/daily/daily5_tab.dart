@@ -7,8 +7,16 @@ import 'package:vetted_club_mobile/core/widgets/widgets.dart';
 import 'package:vetted_club_mobile/features/daily/providers/daily5_session_provider.dart';
 import 'package:vetted_club_mobile/features/daily/widgets/daily5_countdown.dart';
 import 'package:vetted_club_mobile/features/daily/widgets/daily5_pass_reason_sheet.dart';
+import 'package:vetted_club_mobile/features/daily/widgets/daily5_full_profile_sheet.dart';
+import 'package:vetted_club_mobile/features/daily/widgets/daily5_score_breakdown_sheet.dart';
+import 'package:vetted_club_mobile/features/daily/widgets/daily5_interest_sent_sheet.dart';
+import 'package:vetted_club_mobile/features/daily/widgets/daily5_match_celebration.dart';
 import 'package:vetted_club_mobile/features/daily/widgets/daily5_profile_card.dart';
+import 'package:vetted_club_mobile/features/chat/chat_thread_launcher.dart';
+import 'package:vetted_club_mobile/features/profile/providers/profile_draft_notifier.dart';
 import 'package:vetted_club_mobile/features/profile/providers/profile_providers.dart';
+import 'package:vetted_club_mobile/core/services/chat_service.dart';
+import 'package:vetted_club_mobile/features/daily/utils/daily_field_labels.dart';
 import 'package:vetted_club_mobile/features/values/providers/values_quiz_gate.dart';
 import 'package:vetted_club_mobile/features/values/providers/values_quiz_status_notifier.dart';
 import 'package:vetted_club_mobile/features/values/values_quiz_screen.dart';
@@ -50,7 +58,7 @@ class _Daily5TabState extends ConsumerState<Daily5Tab> {
   }
 
   void _activate() {
-    ref.read(daily5SessionProvider.notifier).activate();
+    ref.read(daily5SessionProvider.notifier).activate(force: true);
   }
 
   Widget _quiz({required ValueChanged<String> onComplete}) {
@@ -87,16 +95,48 @@ class _Daily5TabState extends ConsumerState<Daily5Tab> {
         type: 'interested',
       );
       if (!mounted) return;
-      if (result.isMutual) {
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: true,
-          builder: (ctx) => VcMatchOverlay(
-            otherName: entry.profile.displayName ?? 'them',
-            otherInitial: (entry.profile.displayName ?? 'P').characters.first,
-            onSayHi: () => Navigator.of(ctx).pop(),
-          ),
+
+      final isMutual = result.isMutual || entry.reverseInterested;
+      final otherName = cleanDailyDisplayName(entry.profile.displayName);
+      final otherInitial = dailyProfileInitial(entry.profile.displayName);
+      final draft = ref.read(profileDraftProvider).value;
+      final yourInitial = dailyProfileInitial(
+        draft?.displayName ?? draft?.firstName,
+        fallback: 'Y',
+      );
+
+      if (isMutual) {
+        await Daily5MatchCelebration.show(
+          context,
+          otherName: otherName,
+          otherInitial: otherInitial,
+          yourInitial: yourInitial,
+          onSayHi: () async {
+            final currentName =
+                draft?.displayName ?? draft?.firstName ?? 'Member';
+            try {
+              final threadId = await ChatService.instance.getOrCreateThread(
+                otherUid: entry.profile.uid,
+                otherName: otherName,
+                currentName: currentName,
+              );
+              if (!mounted) return;
+              await ChatThreadLauncher.open(
+                context,
+                threadId: threadId,
+                otherUserName: otherName,
+                otherUserPhotoUrl: entry.profile.primaryPhoto,
+              );
+            } catch (e) {
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Could not open chat: $e')),
+              );
+            }
+          },
         );
+      } else {
+        await Daily5InterestSentSheet.show(context, name: otherName);
       }
       _advance(entry);
     } catch (e) {
@@ -249,7 +289,11 @@ class _Daily5TabState extends ConsumerState<Daily5Tab> {
             style: AppTypography.eyebrow(color: AppColors.violet),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Daily5ProfileCard(
+          Padding(
+            padding: EdgeInsets.only(
+              top: entry.reverseInterested ? AppSpacing.sm : 0,
+            ),
+            child: Daily5ProfileCard(
             name: profile.displayName ?? 'Member',
             age: profile.age,
             subtitle: _subtitle(profile),
@@ -259,12 +303,31 @@ class _Daily5TabState extends ConsumerState<Daily5Tab> {
             matchReasonField: entry.matchReasonField,
             trustTier: profile.trustTier,
             imageUrl: profile.primaryPhoto,
-            tags: profile.interests.take(4).toList(),
+            tags: profile.interests,
+            interestedInYou: entry.reverseInterested,
+            onScoreBreakdownTap: () => Daily5ScoreBreakdownSheet.show(
+              context,
+              compatibilityScore: entry.compatibilityScore,
+              scoreBreakdown: entry.scoreBreakdown,
+              displayName: profile.displayName ?? 'Member',
+              age: profile.age,
+              matchReasonLabel: entry.matchReasonLabel,
+              matchReasonField: entry.matchReasonField,
+              onSendInterest: _acting ? null : () => _onInterested(entry),
+            ),
+            onFullProfileTap: () => Daily5FullProfileSheet.show(
+              context,
+              profile: profile,
+              onPass: _acting ? null : () => _onPass(entry),
+              onSendInterest: _acting ? null : () => _onInterested(entry),
+            ),
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           VcActionButtonRow(
             onPass: _acting ? null : () => _onPass(entry),
             onInterested: _acting ? null : () => _onInterested(entry),
+            interestedLabel: entry.reverseInterested ? 'Match →' : null,
           ),
         ],
       ),

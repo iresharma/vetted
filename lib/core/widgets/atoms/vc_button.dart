@@ -187,10 +187,12 @@ class VcActionButtonRow extends StatelessWidget {
     super.key,
     this.onPass,
     this.onInterested,
+    this.interestedLabel,
   });
 
   final VoidCallback? onPass;
   final VoidCallback? onInterested;
+  final String? interestedLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -208,7 +210,7 @@ class VcActionButtonRow extends StatelessWidget {
         Expanded(
           flex: 5,
           child: VcButton(
-            label: "I'm interested →",
+            label: interestedLabel ?? "I'm interested →",
             variant: VcButtonVariant.coral,
             onTap: onInterested,
             expanded: true,

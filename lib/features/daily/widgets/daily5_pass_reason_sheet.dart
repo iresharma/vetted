@@ -59,6 +59,7 @@ class Daily5PassReasonSheet extends StatelessWidget {
   }) {
     return showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: AppColors.s1,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -69,46 +70,51 @@ class Daily5PassReasonSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.75;
+
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.s3,
-                  borderRadius: BorderRadius.circular(2),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.s3,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Why are you passing?',
-              style: AppTypography.title().copyWith(fontSize: 16),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'This helps us personalise your future picks.',
-              style: AppTypography.supporting(color: AppColors.textMuted),
-            ),
-            const SizedBox(height: 16),
-            for (final option in daily5PassOptions) ...[
-              VcButton.muted(
-                label: option.label,
-                expanded: true,
-                onTap: () {
-                  Navigator.of(context).pop();
-                  onSelect(option);
-                },
+              const SizedBox(height: 16),
+              Text(
+                'Why are you passing?',
+                style: AppTypography.title().copyWith(fontSize: 16),
               ),
-              const SizedBox(height: AppSpacing.sm),
+              const SizedBox(height: 4),
+              Text(
+                'This helps us personalise your future picks.',
+                style: AppTypography.supporting(color: AppColors.textMuted),
+              ),
+              const SizedBox(height: 16),
+              for (final option in daily5PassOptions) ...[
+                VcButton.muted(
+                  label: option.label,
+                  expanded: true,
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    onSelect(option);
+                  },
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

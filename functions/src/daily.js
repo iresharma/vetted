@@ -40,10 +40,22 @@ function hydrateProfileSummary(row) {
     displayName: row.display_name,
     age: row.verified_age,
     city: row.city,
+    homeState: row.home_state,
     profession: row.profession,
+    fieldOfWork: row.field_of_work,
+    educationLevel: row.education_level,
     faith: row.faith,
     motherTongue: row.mother_tongue,
     marriageTimeline: row.marriage_timeline,
+    diet: row.diet,
+    drinking: row.drinking,
+    smoking: row.smoking,
+    familyStructure: row.family_structure,
+    familyInvolvement: row.family_involvement,
+    kidsPreference: row.kids_preference,
+    willingToRelocate: row.willing_to_relocate,
+    workMode: row.work_mode,
+    openToInterFaith: row.open_to_inter_faith,
     photoUrls: parseTextArray(row.photo_urls),
     trustScore: row.trust_score || 0,
     trustTier: row.trust_tier || "trusted",
@@ -72,6 +84,20 @@ exports.getDailyQueue = onCall(callableDefaults, async (request) => {
       [uid]
     );
 
+    const profileUids = queueResult.rows.map((row) => row.profile_uid).filter(Boolean);
+    let reverseInterestedSet = new Set();
+    if (profileUids.length > 0) {
+      const reverseResult = await query(
+        `SELECT actor_uid
+         FROM interactions
+         WHERE actor_uid = ANY($1::text[])
+           AND target_uid = $2
+           AND type = 'interested'`,
+        [profileUids, uid]
+      );
+      reverseInterestedSet = new Set(reverseResult.rows.map((row) => row.actor_uid));
+    }
+
     const entries = queueResult.rows.map((row) => ({
       id: row.id,
       position: row.position,
@@ -80,6 +106,7 @@ exports.getDailyQueue = onCall(callableDefaults, async (request) => {
       matchReasonField: row.match_reason_field,
       matchReasonLabel: row.match_reason_label,
       wasShown: row.was_shown,
+      reverseInterested: reverseInterestedSet.has(row.profile_uid),
       profile: hydrateProfileSummary(row),
     }));
 
@@ -124,12 +151,30 @@ exports.recordDailyInteraction = onCall(callableDefaults, async (request) => {
   }
 
   try {
+    const existingPair = await query(
+      `SELECT actor_uid, type, is_mutual
+       FROM interactions
+       WHERE (actor_uid = $1 AND target_uid = $2)
+          OR (actor_uid = $2 AND target_uid = $1)`,
+      [uid, targetUid]
+    );
+    const alreadyMatched = existingPair.rows.some(
+      (row) => row.type === "matched" || row.is_mutual
+    );
+
+    if (type === "interested" && alreadyMatched) {
+      return { ok: true, isMutual: true };
+    }
+
     await query(
       `INSERT INTO interactions(actor_uid, target_uid, type, source, pass_reason, pass_reason_field)
        VALUES ($1, $2, $3::interaction_type, 'daily_queue', $4::pass_reason_type, $5)
        ON CONFLICT (actor_uid, target_uid)
        DO UPDATE SET
-         type = EXCLUDED.type,
+         type = CASE
+           WHEN interactions.type = 'matched'::interaction_type THEN interactions.type
+           ELSE EXCLUDED.type
+         END,
          source = EXCLUDED.source,
          pass_reason = EXCLUDED.pass_reason,
          pass_reason_field = EXCLUDED.pass_reason_field,
@@ -146,8 +191,9 @@ exports.recordDailyInteraction = onCall(callableDefaults, async (request) => {
     let isMutual = false;
     if (type === "interested") {
       const reverse = await query(
-        `SELECT id FROM interactions
-         WHERE actor_uid = $1 AND target_uid = $2 AND type = 'interested'`,
+        `SELECT id, type FROM interactions
+         WHERE actor_uid = $1 AND target_uid = $2
+           AND type IN ('interested', 'matched')`,
         [targetUid, uid]
       );
       if (reverse.rowCount > 0) {
