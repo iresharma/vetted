@@ -1,25 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:vetted_club_mobile/core/theme/theme.dart';
+import 'package:vetted_club_mobile/features/chat/domain/chat_reply_preview.dart';
 
 class ChatComposer extends StatefulWidget {
   const ChatComposer({
     super.key,
     required this.controller,
     required this.onSend,
+    this.onGifTap,
     this.sending = false,
+    this.gifEnabled = true,
+    this.replyPreview,
+    this.onCancelReply,
+    this.focusNode,
   });
 
   final TextEditingController controller;
   final VoidCallback onSend;
+  final VoidCallback? onGifTap;
   final bool sending;
+  final bool gifEnabled;
+  final ChatReplyPreview? replyPreview;
+  final VoidCallback? onCancelReply;
+  final FocusNode? focusNode;
 
   @override
   State<ChatComposer> createState() => _ChatComposerState();
 }
 
 class _ChatComposerState extends State<ChatComposer> {
-  final _focusNode = FocusNode();
+  late final FocusNode _focusNode;
+  bool _ownsFocusNode = false;
   bool _hasText = false;
   bool _focused = false;
 
@@ -29,6 +41,12 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   void initState() {
     super.initState();
+    if (widget.focusNode != null) {
+      _focusNode = widget.focusNode!;
+    } else {
+      _focusNode = FocusNode();
+      _ownsFocusNode = true;
+    }
     _hasText = widget.controller.text.trim().isNotEmpty;
     widget.controller.addListener(_onTextChanged);
     _focusNode.addListener(() {
@@ -39,7 +57,7 @@ class _ChatComposerState extends State<ChatComposer> {
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
-    _focusNode.dispose();
+    if (_ownsFocusNode) _focusNode.dispose();
     super.dispose();
   }
 
@@ -73,9 +91,48 @@ class _ChatComposerState extends State<ChatComposer> {
             AppSpacing.screenHorizontal,
             AppSpacing.sm,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (widget.replyPreview != null && widget.replyPreview!.isValid)
+                _ReplyPreviewBar(
+                  replyPreview: widget.replyPreview!,
+                  onCancel: widget.onCancelReply,
+                ),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+              if (widget.onGifTap != null) ...[
+                Semantics(
+                  button: true,
+                  enabled: widget.gifEnabled && !widget.sending,
+                  label: 'Send GIF',
+                  child: SizedBox(
+                    width: _sendSize,
+                    height: _sendSize,
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: InkWell(
+                        onTap: widget.gifEnabled && !widget.sending
+                            ? widget.onGifTap
+                            : null,
+                        borderRadius: AppRadius.r8,
+                        child: Center(
+                          child: Icon(
+                            PhosphorIconsRegular.gif,
+                            size: 18,
+                            color: widget.gifEnabled && !widget.sending
+                                ? AppColors.textSecondary
+                                : AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.xs),
+              ],
               Expanded(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -158,8 +215,85 @@ class _ChatComposerState extends State<ChatComposer> {
                   ),
                 ),
               ),
+                ],
+              ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ReplyPreviewBar extends StatelessWidget {
+  const _ReplyPreviewBar({
+    required this.replyPreview,
+    this.onCancel,
+  });
+
+  final ChatReplyPreview replyPreview;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.s1,
+          borderRadius: AppRadius.r8,
+          border: Border.all(color: AppColors.border, width: 0.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 3,
+              height: 40,
+              margin: const EdgeInsets.only(left: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: AppColors.coral,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.xs,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      replyPreview.senderName,
+                      style: AppTypography.statCaption(
+                        color: AppColors.coral,
+                      ).copyWith(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      replyPreview.text,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.supporting(
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (onCancel != null)
+              IconButton(
+                onPressed: onCancel,
+                icon: Icon(
+                  PhosphorIconsRegular.x,
+                  size: 16,
+                  color: AppColors.textMuted,
+                ),
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                constraints: const BoxConstraints(),
+              ),
+          ],
         ),
       ),
     );

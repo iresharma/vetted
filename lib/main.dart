@@ -8,6 +8,7 @@ import 'package:vetted_club_mobile/core/cache/local_cache.dart';
 import 'package:vetted_club_mobile/core/config/app_check_bootstrap.dart';
 import 'package:vetted_club_mobile/core/config/app_check_debug.dart';
 import 'package:vetted_club_mobile/core/config/app_env.dart';
+import 'package:vetted_club_mobile/core/config/giphy_bootstrap.dart';
 import 'package:vetted_club_mobile/core/services/functions_service.dart';
 import 'package:vetted_club_mobile/firebase_options.dart';
 
@@ -21,6 +22,8 @@ Future<void> main() async {
       debugPrint('AppEnv: .env not loaded ($e). Copy .env.example → .env');
     }
   }
+
+  GiphyBootstrap.configure();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,

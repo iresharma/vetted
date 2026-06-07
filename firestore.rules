@@ -20,6 +20,63 @@ service cloud.firestore {
         && request.auth.uid in resource.data.members;
     }
 
+    function isMessageThreadMember(threadId) {
+      return isSignedIn()
+        && exists(threadDoc(threadId))
+        && request.auth.uid in get(threadDoc(threadId)).data.members;
+    }
+
+    function otherMember(members, uid) {
+      return members[0] == uid ? members[1] : members[0];
+    }
+
+    function isValidReadByUpdate() {
+      let oldReadBy = resource.data.get('readBy', []);
+      let newReadBy = request.resource.data.get('readBy', []);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy'])
+        && newReadBy.hasAll(oldReadBy)
+        && request.auth.uid in newReadBy
+        && !(request.auth.uid in oldReadBy);
+    }
+
+    function isValidHiddenForUpdate() {
+      let oldHidden = resource.data.get('hiddenFor', []);
+      let newHidden = request.resource.data.get('hiddenFor', []);
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hiddenFor'])
+        && newHidden.hasAll(oldHidden)
+        && request.auth.uid in newHidden
+        && !(request.auth.uid in oldHidden);
+    }
+
+    function isValidReactionUpdate(threadId) {
+      let uid = request.auth.uid;
+      let oldReactions = resource.data.get('reactions', {});
+      let newReactions = request.resource.data.get('reactions', {});
+      let otherUid = otherMember(get(threadDoc(threadId)).data.members, uid);
+      let otherOld = otherUid in oldReactions ? oldReactions[otherUid] : null;
+      let otherNew = otherUid in newReactions ? newReactions[otherUid] : null;
+      let otherUnchanged = otherOld == otherNew;
+      let ownChangeValid =
+        (uid in newReactions && newReactions[uid] is string)
+        || (!(uid in newReactions) && uid in oldReactions);
+
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+        && newReactions is map
+        && otherUnchanged
+        && ownChangeValid;
+    }
+
+    function isValidDeleteForEveryoneUpdate(threadId) {
+      let thread = get(threadDoc(threadId)).data;
+      let recipient = otherMember(thread.members, request.auth.uid);
+      let oldReadBy = resource.data.get('readBy', []);
+      return resource.data.senderId == request.auth.uid
+        && request.resource.data.deletedForEveryone == true
+        && resource.data.get('deletedForEveryone', false) == false
+        && !(recipient in oldReadBy)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedForEveryone']);
+    }
+
     match /chat_threads/{threadId} {
       // Existing threads: membership is enough for list/get queries.
       // Non-existent docs: allow get so getOrCreateThread can check existence.
@@ -43,6 +100,13 @@ service cloud.firestore {
           && exists(threadDoc(threadId))
           && request.auth.uid in get(threadDoc(threadId)).data.members
           && request.resource.data.senderId == request.auth.uid;
+
+        allow update: if isMessageThreadMember(threadId) && (
+          isValidReadByUpdate()
+          || isValidHiddenForUpdate()
+          || isValidReactionUpdate(threadId)
+          || isValidDeleteForEveryoneUpdate(threadId)
+        );
       }
     }
   }

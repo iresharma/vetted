@@ -3,16 +3,23 @@ import 'package:vetted_club_mobile/core/theme/theme.dart';
 import 'package:vetted_club_mobile/features/chat/data/models/chat_message.dart';
 import 'package:vetted_club_mobile/features/chat/widgets/chat_date_separator.dart';
 import 'package:vetted_club_mobile/features/chat/widgets/chat_message_bubble.dart';
+import 'package:vetted_club_mobile/features/chat/widgets/chat_swipe_to_reply.dart';
 
 class ChatMessageList extends StatelessWidget {
   const ChatMessageList({
     super.key,
     required this.messages,
     required this.scrollController,
+    required this.otherUserId,
+    required this.onMessageReply,
+    required this.onMessageLongPress,
   });
 
   final List<ChatMessage> messages;
   final ScrollController scrollController;
+  final String otherUserId;
+  final ValueChanged<ChatMessage> onMessageReply;
+  final ValueChanged<ChatMessage> onMessageLongPress;
 
   static const _groupGapMinutes = 3;
 
@@ -28,11 +35,17 @@ class ChatMessageList extends StatelessWidget {
         final item = items[index];
         return switch (item) {
           _DateItem(:final date) => ChatDateSeparator(date: date),
-          _MessageItem(:final message, :final group) => ChatMessageBubble(
-              message: message,
-              isFirstInGroup: group.isFirst,
-              isLastInGroup: group.isLast,
-              showTimestamp: group.isLast,
+          _MessageItem(:final message, :final group) => ChatSwipeToReply(
+              enabled: !message.deletedForEveryone,
+              onReply: () => onMessageReply(message),
+              child: ChatMessageBubble(
+                message: message,
+                otherUserId: otherUserId,
+                isFirstInGroup: group.isFirst,
+                isLastInGroup: group.isLast,
+                showTimestamp: group.isLast,
+                onLongPress: () => onMessageLongPress(message),
+              ),
             ),
         };
       },
